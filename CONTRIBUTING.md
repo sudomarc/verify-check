@@ -38,6 +38,6 @@ Une PR qui touche le **schéma de données**, la **sécurité** (RLS, Auth, secr
    ```
 3. **Un commit clair par tâche** (voir `TEAM.md`) : `feat(sprint-2): ...`, `fix: ...`, `docs: ...`
 4. **Ouvrir une Pull Request vers `main`** dès que la tâche est terminée, en remplissant le template de PR (description + tâche du `ROADMAP.md` concernée + checklist).
-5. **Attendre que la CI passe** (workflow `CI` : lint + build). Une PR rouge ne se merge pas.
+5. **Attendre que la CI passe** (workflow `CI` : typecheck + build). Une PR rouge ne se merge pas.
 6. **Merger puis supprimer la branche** (squash recommandé).
 7. Rappels : jamais de secrets/clés dans les commits ; toute évolution du schéma de données nécessite la validation de Patrick ; uniquement des services free tier.
