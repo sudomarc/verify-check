@@ -17,7 +17,7 @@ Chaque agent de rôle (Rôles 2, 3, 4 de `TEAM.md`) travaille en autonomie et **
 9. **Handoff en fin de session** : si la tâche n'est pas terminée, écrire précisément ce qui reste à faire pour l'agent suivant du même rôle.
 
 ### Interdits pour les agents
-- Push direct sur `main` (bloqué par GitHub), force-push, suppression de branche.
+- Push direct sur `main` (bloqué par GitHub), force-push, suppression de `main`.
 - Modifier le schéma de données sans validation humaine (Patrick) — proposer en PR avec la mention « changement de schéma ».
 - Commiter des secrets/clés ; ajouter une dépendance payante.
 - Merger une PR dont le check `CI / build` n'est pas passé (impossible techniquement, ne pas chercher de contournement).
