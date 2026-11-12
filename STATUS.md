@@ -20,10 +20,11 @@
 - **Peut faire dès maintenant :** maquette de l'écran scan (Sprint 0, ROADMAP) — rien ne dépend du schéma.
 - **Débloqué :** —
 
-## Rôle 3 — Frontend dashboard ⏳ EN ATTENTE DU RÔLE 1
-- **Bloqué tant que :** tables + RLS + Auth admin (Sprint 1, Rôle 1) ne sont pas en place (API dashboard plus tard, Sprint 3).
-- **Peut faire dès maintenant :** maquette de l'écran dashboard (Sprint 0, ROADMAP).
-- **Débloqué :** —
+## Rôle 3 — Frontend dashboard 🔨 SPRINT 0 LIVRÉ (à valider)
+- **En cours :** —
+- **Terminé :** Sprint 0 — maquette dashboard (`src/app/dashboard` + `src/components/dashboard`) : 3 vues (classe, cours, élève) sur données fictives, filtres date/export désactivés. **Non vérifié** : build non exécuté (Node absent sur le poste), pas encore validé par Patrick.
+- **Bloqué sur :** Rôle 1 pour le Sprint 1 (auth) et le Sprint 3 (vues réelles + API).
+- **Handoff :** branche `feat/sprint-0-dashboard-maquette` (basée sur `feat/mock-data`, mock non encore mergé). PR à ouvrir ; ne pas cocher la case ROADMAP avant validation + vérification navigateur.
 
 ## Rôle 4 — Carte ID + QR + intégration ⏳ EN ATTENTE DU RÔLE 1
 - **Bloqué tant que :** tables `students`/`classes` (Sprint 1, Rôle 1) ne sont pas en place.
