@@ -1,0 +1,130 @@
+# Tool Audit Log Governance Contract
+
+## Metadata
+- **contract_id**: `tool_audit_governance`
+- **version**: `1.0.0`
+- **ecosystem**: CHAD / LapisLLM / Vibe Coding Instructions
+
+## Purpose
+Define a provider-neutral, standardized audit logging convention for tool execution across AI agent runtimes. This contract guarantees structured tracing, parameter redaction, side-effect accountability, and trust labeling for all tool invocations in the CHAD + LapisLLM ecosystem.
+
+---
+
+## 1. Audit Log Record Schema
+
+All tool executions within the ecosystem must emit structured JSONL audit records conforming to the following JSON schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ToolAuditEvent",
+  "type": "object",
+  "required": [
+    "event_id",
+    "timestamp",
+    "agent_id",
+    "trace_id",
+    "tool_name",
+    "permission_tier",
+    "side_effect_class",
+    "trust_label",
+    "parameters_redacted",
+    "status",
+    "duration_ms"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique UUIDv4 identifying this audit event record"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of tool execution completion"
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Identifier of the agent initiating the tool call (e.g. coder-agent-12)"
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "Distributed trace correlation ID spanning prompt, model response, and tool invocation"
+    },
+    "tool_name": {
+      "type": "string",
+      "description": "Declared tool identifier matching tool.contract.md (e.g. bash_execution, write_file)"
+    },
+    "permission_tier": {
+      "type": "string",
+      "enum": ["READ_ONLY", "WORKSPACE_WRITE", "ISOLATED_EXECUTE", "NETWORK_ACCESS", "PRIVILEGED_MUTATION"]
+    },
+    "side_effect_class": {
+      "type": "string",
+      "enum": ["NO_EFFECT", "REVERSIBLE_FILE_CHANGE", "IRREVERSIBLE_HOST_MUTATION", "NETWORK_TRANSACTION"]
+    },
+    "trust_label": {
+      "type": "string",
+      "enum": ["VERIFIED_LOCAL", "UNTRUSTED_REMOTE", "ISOLATED_SANDBOXED"]
+    },
+    "parameters_redacted": {
+      "type": "object",
+      "description": "Tool parameters after filtering secrets, credentials, and sensitive payloads"
+    },
+    "parameters_hash": {
+      "type": "string",
+      "description": "SHA-256 digest of original raw parameters for non-repudiation verification"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["SUCCESS", "FAILED", "BLOCKED_SAFETY", "BLOCKED_PERMISSIONS", "TIMEOUT"]
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total tool execution latency in milliseconds"
+    },
+    "error_code": {
+      "type": ["string", "null"],
+      "description": "Error identifier if status is not SUCCESS (e.g. PERMISSION_DENIED, TIMEOUT_EXCEEDED)"
+    },
+    "verification_evidence_ref": {
+      "type": ["string", "null"],
+      "description": "Reference path or URI to captured verification evidence (e.g. diff, test report, screenshot)"
+    }
+  }
+}
+```
+
+---
+
+## 2. Redaction & Secret-Handling Policy
+
+To maintain zero raw secrets in telemetry and persistent logs:
+
+1. **Automatic Secret Detection**: Runtime engines MUST filter parameters through credential patterns (API keys, JWTs, OAuth tokens, SSH keys, password strings) before emitting `parameters_redacted`.
+2. **High-Risk Argument Masking**: For tools executing shell commands (`ISOLATED_EXECUTE` or `PRIVILEGED_MUTATION`), inline flags containing passwords or bearer tokens MUST be replaced with `[REDACTED]`.
+3. **Parameters Hash**: A SHA-256 `parameters_hash` MAY be recorded alongside redacted parameters to support non-repudiation audits without exposing raw sensitive payloads.
+
+---
+
+## 3. Storage & Retention Conventions
+
+- **Format**: Append-only JSON Lines (`.jsonl`) files stored under `.ai/audit/` or the runtime log directory.
+- **Tamper-Evidence**: High-risk tool calls (`PRIVILEGED_MUTATION` or `IRREVERSIBLE_HOST_MUTATION`) MUST include an HMAC signature computed over the audit record using an isolated runtime secret.
+- **Log Rotation**: Audit log files SHOULD be rotated when reaching 50MB or at daily boundaries.
+- **Retention**: Audit logs SHOULD be preserved according to enterprise governance policy (minimum 30 days for workspace changes, 1 year for privileged operations).
+
+---
+
+## 4. CHAD Runtime & LapisLLM Model Compatibility
+
+### CHAD Runtime Layer
+- CHAD captures tool execution start/end times, exit codes, and error messages.
+- CHAD enforces runtime parameter redaction prior to persisting JSONL records.
+- CHAD propagates `trace_id` across subagent delegations and tool execution boundaries.
+- CHAD links `verification_evidence_ref` to generated diffs or test logs produced during tool execution.
+
+### LapisLLM Model Gateway
+- LapisLLM correlates tool call requests generated by model inference with downstream audit `event_id` records.
+- LapisLLM consumes audit trust labels (`UNTRUSTED_REMOTE`) to flag potential prompt injection attempts in subsequent inference cycles.
+- LapisLLM leverages `parameters_hash` and `duration_ms` for tool reliability benchmarking and model evaluation.
