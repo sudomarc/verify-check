@@ -71,6 +71,7 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
 ## Règles de travail
 
 - Branches `feat/*`, `fix/*` → PR vers `main` (main = stable).
-- Cocher les cases de ce fichier au fur et à mesure (voir `TEAM.md`, section Suivi).
+- Cocher les cases de ce fichier au fur et à mesure (voir `TEAM.md`, section Suivi). Toute tâche déclarée terminée doit être cochée dans la même PR qui la termine.
+- Une PR transverse qui ne termine aucune tâche listée ne doit cocher aucune case ; son périmètre et son résultat doivent être consignés dans `STATUS.md`.
 - Toute évolution du schéma de données nécessite validation humaine (Patrick) — élèves mineurs, minimisation des données.
 - Vérifier le coût : uniquement des services free tier.
