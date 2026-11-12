@@ -6,19 +6,19 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 
 ---
 
-## Rôle 0 — Pilotage, arbitrage et validation (Patrick)
+## Rôle 0 — Coordination et supervision (assistant ChatGPT)
 
-**Périmètre :** priorités, architecture, sécurité, données élèves, arbitrages entre rôles et validation des changements sensibles. Le Rôle 0 ne remplace pas les responsables d'implémentation.
+**Périmètre :** coordonner le travail des rôles, maintenir une vision fiable de l'état du dépôt, vérifier les preuves, suivre les dépendances, signaler les risques et préparer les arbitrages. Le Rôle 0 ne remplace aucun responsable d'implémentation et ne prend pas les décisions humaines à la place de Patrick.
 
-- [ ] Valider les décisions d'architecture du MVP et le périmètre fonctionnel.
-- [ ] Valider le modèle de données, l'anti-doublon et les règles de conservation des données élèves.
-- [ ] Valider explicitement toute modification du schéma, de RLS, d'Auth ou des données personnelles.
-- [ ] Vérifier les blocages et confirmer les dépendances avant le démarrage des tâches.
-- [ ] Effectuer la revue finale du MVP et valider le scénario de démonstration.
+- [ ] Maintenir le suivi des tâches cohérent avec `main`, les PR fusionnées, la CI et les vérifications disponibles.
+- [ ] Identifier les blocages, dépendances et risques, puis les transmettre au rôle ou à la personne responsable.
+- [ ] Préparer des plans et prompts précis pour les agents d'implémentation, sans leur attribuer de décisions non approuvées.
+- [ ] Vérifier les changements proposés : périmètre, preuves, sécurité, tests et cohérence documentaire.
+- [ ] Préparer la revue de fin de MVP et le scénario de démonstration ; la validation finale appartient à Patrick.
 
-## Rôle 1 — Backend / DB
+## Rôle 1 — Backend / DB (Patrick)
 
-**Périmètre :** schéma Supabase, API, logique métier et sécurité des données.
+**Périmètre :** Patrick est le responsable humain du backend/DB et le mainteneur du projet. Il pilote le schéma Supabase, l'API, la logique métier et la sécurité des données ; il valide les décisions d'architecture, de schéma, de RLS/Auth et de traitement des données élèves. L'assistant (Rôle 0) coordonne et vérifie, mais ne se substitue pas à son approbation.
 
 1. **Sprint 0 — Schéma**
    - [ ] Définir et faire valider le modèle de données `classes`, `students`, `courses`, `attendance`.
@@ -85,12 +85,12 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 
 ## Règles de suivi
 
-1. **Cocher uniquement après preuve :** tâche intégrée dans `main`, CI requise verte et vérification adaptée à la tâche. Une PR ouverte, une fonctionnalité partielle ou une simple déclaration ne suffit pas.
-2. **Mise à jour dans la même PR :** le responsable coche les tâches réellement terminées dans `TEAM.md` et met à jour `STATUS.md` et `ROADMAP.md` si les tâches correspondantes y figurent.
+1. **Cocher dans la PR qui termine la tâche :** le responsable peut préparer la case `[x]` dans sa PR, mais elle ne compte comme terminée qu'après fusion dans `main`, CI requise verte et vérification adaptée. Une PR ouverte, une fonctionnalité partielle ou une simple déclaration ne suffit pas.
+2. **Synchroniser la documentation dans la même PR :** mettre à jour `TEAM.md`, `STATUS.md` et `ROADMAP.md` lorsque la tâche correspondante y figure ; préciser les preuves et limites.
 3. **Une tâche cohérente par commit/PR :** utiliser un message explicite, par exemple `feat(sprint-2): scanner PWA` ou `docs: update team task tracking`.
 4. **Respect des dépendances :** ne pas commencer une intégration qui dépend d'un backend ou d'une validation non disponible.
 5. **Blocage explicite :** décrire le blocage, son impact et la personne/le rôle attendu dans la PR ou l'issue.
 6. **Pas de push direct sur `main` :** travailler sur une branche et ouvrir une PR.
-7. **Validation humaine obligatoire :** Patrick (Rôle 0) doit approuver les changements de schéma, RLS, Auth, secrets ou données personnelles d'élèves avant leur merge.
+7. **Validation humaine obligatoire :** Patrick (Rôle 1 / mainteneur humain) doit approuver les changements de schéma, RLS, Auth, secrets ou données personnelles d'élèves avant leur merge. Le Rôle 0 ne peut pas donner cette approbation à sa place.
 8. **Budget :** services free tier uniquement ; toute dépendance ou service payant doit être soumis à validation avant adoption.
 
