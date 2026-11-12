@@ -11,9 +11,9 @@
 
 ## Rôle 1 — Backend/DB (Patrick) 🔨 EN COURS
 - **En cours :** Sprint 1 — setup Supabase Cloud (projet, clés, variables Vercel)
-- **Terminé :** Sprint 0 — schéma v1.1 mergé (PR #4) : `classes`, `students`, `courses` (+`salle`), `attendance`, anti-doublon élève/cours/jour, RLS. ⚠️ SQL pas encore exécuté dans Supabase.
+- **Terminé :** Sprint 0 — schéma v1 mergé (PR #4) : `classes`, `students`, `courses` (+`salle`), `attendance`, anti-doublon élève/cours/jour, RLS. ⚠️ SQL pas encore exécuté dans Supabase.
 - **Bloqué sur :** création du projet Supabase (compte humain requis)
-- **Handoff :** `supabase/schema.sql` v1.1 validé et mergé ; à exécuter dans le SQL Editor Supabase dès que le projet cloud existe.
+- **Handoff :** `supabase/schema.sql` v1 validé et mergé ; à exécuter dans le SQL Editor Supabase dès que le projet cloud existe.
 
 ## Rôle 2 — Frontend scanner ⏳ EN ATTENTE DU RÔLE 1
 - **Bloqué tant que :** le projet Supabase est créé et les tables exécutées (Sprint 1, Rôle 1), puis l'endpoint scan (Sprint 2, Rôle 1).
@@ -34,5 +34,5 @@
 
 ## Événements de déblocage (historique court)
 - *2026-11-12* — Fichier créé. Aucun déblocage : Rôle 1 démarre le schéma du Sprint 0.
-- *2026-11-12* — Schéma v1.1 mergé (PR #4) + protection de `main` active (PR obligatoire, check CI, admins inclus).
+- *2026-11-12* — Schéma v1 mergé (PR #4) + protection de `main` active (PR obligatoire, check CI, admins inclus).
 - *2026-11-12* — **Autonomie des agents** : règle « 1 review » retirée de la protection de `main`. Chaque agent (Rôles 2/3/4) ouvre ses PR et les merge lui-même après CI verte (workflow dans `CONTRIBUTING.md`). Exception : schéma de données / sécurité / données élèves = validation Patrick obligatoire.
