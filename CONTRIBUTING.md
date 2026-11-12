@@ -12,8 +12,8 @@ Chaque agent de rôle (Rôles 2, 3, 4 de `TEAM.md`) travaille en autonomie et **
 4. **Commit(s) clairs** : `feat(sprint-X): ...` / `fix: ...` / `docs: ...` — un commit par unité cohérente.
 5. **Pousser la branche** puis **ouvrir la PR vers `main`** en remplissant le template (description + tâche ROADMAP + checklist).
 6. **Attendre le check `CI / build`** : il est **requis** par la protection de branche — une PR rouge ne peut pas être mergée. Si la CI échoue : corriger sur la même branche, re-pousser.
-7. **Merger soi-même** : `gh pr merge <num> --squash --delete-branch` (squash = un commit propre par PR dans `main`).
-8. **Mettre à jour `STATUS.md`** dans la PR suivante (ou la même si docs) : tâche cochée dans `ROADMAP.md`, section de son rôle, handoff (fait / pas fait / bloqué).
+7. **Mettre à jour `STATUS.md` et `ROADMAP.md` dans la même PR, avant le merge** : actualiser la section du rôle et le handoff ; cocher uniquement les tâches ROADMAP réellement terminées. Pour une PR transverse qui ne termine aucune tâche listée, ne cocher aucune case et préciser ce périmètre dans `STATUS.md`.
+8. **Merger soi-même** : `gh pr merge <num> --squash --delete-branch` (squash = un commit propre par PR dans `main`).
 9. **Handoff en fin de session** : si la tâche n'est pas terminée, écrire précisément ce qui reste à faire pour l'agent suivant du même rôle.
 
 ### Interdits pour les agents
