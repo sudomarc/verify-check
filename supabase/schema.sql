@@ -18,6 +18,7 @@ create table courses (
   id uuid primary key default gen_random_uuid(),
   nom text not null,
   classe_id uuid not null references classes(id) on delete cascade,
+  salle text,                            -- association scan → salle (flux Sprint 2)
   -- créneau hebdomadaire : jour + heure début/fin (UTC simplifié au MVP)
   jour_semaine int not null check (jour_semaine between 0 and 6), -- 0 = dimanche
   heure_debut time not null,
@@ -33,6 +34,7 @@ create table attendance (
 );
 
 create index attendance_course_idx on attendance (course_id, scanned_at);
+create index students_classe_idx on students (classe_id);  -- vues dashboard par classe
 
 -- RLS : base stricte. Lecture/écriture réservées aux admins authentifiés.
 alter table classes enable row level security;
