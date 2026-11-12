@@ -1,78 +1,96 @@
-# TEAM — Répartition des tâches
+# TEAM — Répartition et suivi des tâches
 
-4 rôles, chacun responsable des tâches de `ROADMAP.md` listées ci-dessous.
-Ne pas coder une tâche avant que ses dépendances soient terminées (colonne « Dépend de »).
+Chaque tâche est une case à cocher. Une case ne passe à `[x]` que lorsque le travail est **terminé, intégré dans `main` et vérifié**. Une maquette ou des données fictives ne valent pas réalisation de la fonctionnalité réelle.
+
+Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avant de commencer l'implémentation.
 
 ---
 
-## Rôle 1 — Backend/DB
-**Périmètre : schéma Supabase, API, logique métier (association scan/cours/élève).**
+## Rôle 0 — Pilotage, arbitrage et validation (Patrick)
 
-Ordre des tâches :
+**Périmètre :** priorités, architecture, sécurité, données élèves, arbitrages entre rôles et validation des changements sensibles. Le Rôle 0 ne remplace pas les responsables d'implémentation.
 
-1. **Sprint 0** — Schéma de base de données (`classes`, `students`, `courses`, `attendance`) *(aucune dépendance — à faire en premier, tout le monde en dépend)*
-2. **Sprint 1** — Setup Supabase (projet cloud, clés, env Vercel)
-3. **Sprint 1** — Création des tables + RLS
-4. **Sprint 1** — Auth admin + protection des routes
-5. **Sprint 2** — Endpoint/logique : scan → salle → cours actif → écriture `attendance` horodatée + anti-doublon
-6. **Sprint 2** — Gestion des erreurs côté logique métier (double scan, QR invalide, pas de cours en cours)
-7. **Sprint 3** — Requêtes/API du dashboard (par classe / cours / élève, filtres, export absences)
+- [ ] Valider les décisions d'architecture du MVP et le périmètre fonctionnel.
+- [ ] Valider le modèle de données, l'anti-doublon et les règles de conservation des données élèves.
+- [ ] Valider explicitement toute modification du schéma, de RLS, d'Auth ou des données personnelles.
+- [ ] Vérifier les blocages et confirmer les dépendances avant le démarrage des tâches.
+- [ ] Effectuer la revue finale du MVP et valider le scénario de démonstration.
 
-**Dépendances :** le Rôle 2 (scanner) et le Rôle 3 (dashboard) dépendent de ses tâches 1–3 (schéma + RLS + Supabase setup) avant de coder leurs écrans.
+## Rôle 1 — Backend / DB
+
+**Périmètre :** schéma Supabase, API, logique métier et sécurité des données.
+
+1. **Sprint 0 — Schéma**
+   - [ ] Définir et faire valider le modèle de données `classes`, `students`, `courses`, `attendance`.
+   - [ ] Corriger et vérifier le SQL initial (`supabase/schema.sql`), notamment l'anti-doublon par jour.
+2. **Sprint 1 — Infrastructure**
+   - [ ] Créer/configurer le projet Supabase (compte humain requis).
+   - [ ] Configurer les variables d'environnement sans exposer de secrets.
+   - [ ] Créer les tables et vérifier les migrations dans Supabase.
+   - [ ] Configurer et tester des politiques RLS qui limitent réellement l'accès aux admins autorisés.
+   - [ ] Implémenter l'authentification admin et la protection des routes.
+3. **Sprint 2 — Logique de présence**
+   - [ ] Implémenter l'association scan → salle → cours actif.
+   - [ ] Enregistrer une présence avec horodatage serveur.
+   - [ ] Empêcher les doublons élève/cours/jour.
+   - [ ] Gérer les erreurs métier : double scan, QR invalide, aucun cours actif.
+4. **Sprint 3 — API dashboard**
+   - [ ] Fournir les données de présence par classe, cours et élève.
+   - [ ] Fournir les filtres et les données nécessaires à l'export des absences.
+
+**Dépendances :** les rôles 2 et 3 ne branchent pas leurs écrans sur le backend avant que le schéma, Supabase et les règles d'accès nécessaires soient prêts. Le rôle 2 attend aussi l'endpoint de scan avant d'implémenter l'écriture réelle des présences.
 
 ## Rôle 2 — Frontend scanner
-**Périmètre : PWA caméra, UX du scan (feedback visuel/sonore).**
 
-Ordre des tâches :
+**Périmètre :** PWA de scan, caméra et retour utilisateur.
 
-1. **Sprint 0** — Maquette rapide de l'écran scan
-2. **Sprint 2** — PWA scanner : caméra navigateur avec `html5-qrcode`
-3. **Sprint 2** — Feedback visuel/sonore de confirmation
-4. **Sprint 4** — Polish des erreurs côté UI (double scan, QR invalide, pas de cours en cours)
-5. **Sprint 4** — Tests manuels du parcours scan → présence (avec le Rôle 4)
+- [ ] **Sprint 0 :** réaliser la maquette de l'écran de scan.
+- [ ] **Sprint 2 :** intégrer la caméra navigateur avec `html5-qrcode`.
+- [ ] **Sprint 2 :** connecter le scan à l'endpoint backend et afficher le résultat réel.
+- [ ] **Sprint 2 :** ajouter les retours visuel et sonore de confirmation/erreur.
+- [ ] **Sprint 4 :** traiter les états d'erreur côté interface (double scan, QR invalide, aucun cours actif).
+- [ ] **Sprint 4 :** tester manuellement le parcours complet scan → présence avec le rôle 4.
 
-**Dépend de :** Rôle 1 (schéma DB + logique métier du Sprint 2). Ne pas coder l'écriture de présence avant que l'endpoint scan du Rôle 1 existe.
+**Dépend de :** rôle 1 pour l'API de scan et les règles métier. La maquette peut être faite avant le backend.
 
 ## Rôle 3 — Frontend dashboard
-**Périmètre : vue direction/admin, listes, filtres, export.**
 
-Ordre des tâches :
+**Périmètre :** vues direction/admin, listes, filtres et export.
 
-1. **Sprint 0** — Maquette rapide de l'écran dashboard
-2. **Sprint 1** — Pages d'auth admin (login, routes protégées) avec le Rôle 1
-3. **Sprint 3** — Vue présence par classe / cours / élève
-4. **Sprint 3** — Filtres (date, classe, cours)
-5. **Sprint 3** — Liste des absences + export CSV
-6. **Sprint 4** — UI légère/rapide (connectivité faible à Conakry)
+- [x] **Sprint 0 :** réaliser la maquette du dashboard direction avec les vues par classe, cours et élève — PR #6 fusionnée dans `main`.
+- [ ] **Sprint 1 :** intégrer les pages de connexion admin et la protection des routes avec le rôle 1.
+- [ ] **Sprint 3 :** connecter la vue présence par classe aux données réelles.
+- [ ] **Sprint 3 :** connecter la vue présence par cours aux données réelles.
+- [ ] **Sprint 3 :** connecter la vue présence par élève et son historique aux données réelles.
+- [ ] **Sprint 3 :** implémenter les filtres date, classe et cours.
+- [ ] **Sprint 3 :** implémenter la liste des absences et l'export CSV ou imprimable.
+- [ ] **Sprint 4 :** optimiser l'interface pour une utilisation légère et une connectivité faible à Conakry.
 
-**Dépend de :** Rôle 1 (tables + RLS + Auth du Sprint 1 ; API dashboard du Sprint 3).
+**Dépend de :** rôle 1 pour les tables, RLS, Auth et API du dashboard. La maquette actuelle utilise des données fictives ; elle ne constitue pas une connexion au backend.
 
-## Rôle 4 — Carte ID + QR + intégration
-**Périmètre : génération des cartes, données de démo, tests bout en bout, coordination présentation.**
+## Rôle 4 — Carte ID, QR et intégration
 
-Ordre des tâches :
+**Périmètre :** génération des cartes, données de test/démo et validation de bout en bout.
 
-1. **Sprint 0** — Maquette rapide de la carte élève
-2. **Sprint 1** — Génération carte ID + QR unique par élève (lib `qrcode`, rendu imprimable)
-3. **Sprint 1** — Données minimales de test (élèves/classes factices)
-4. **Sprint 4** — Données de démo réalistes
-5. **Sprint 4** — Préparation de la présentation (scénario de démo) + coordination finale
+- [ ] **Sprint 0 :** réaliser la maquette de la carte élève.
+- [ ] **Sprint 1 :** générer une carte ID avec un QR unique par élève et un rendu imprimable.
+- [x] **Sprint 1 — préparation :** créer des données fictives typées pour les classes, élèves, cours et présences (`src/lib/mock-data.ts`, PR #3 fusionnée). Ces données sont des mocks, pas des enregistrements Supabase.
+- [ ] **Sprint 4 :** préparer un jeu de données de démonstration réaliste et cohérent.
+- [ ] **Sprint 4 :** préparer le scénario de présentation et coordonner la démonstration finale.
+- [ ] **Sprint 4 :** participer aux tests de bout en bout avec le rôle 2.
 
-**Dépend de :** Rôle 1 (tables `students`/`classes` du Sprint 1 pour la génération des cartes ; données de démo du Sprint 4). Travaille avec le Rôle 2 pour les tests bout en bout.
+**Dépend de :** rôle 1 pour les tables `students` et `classes` avant la génération liée aux données réelles. Le rôle 4 travaille avec le rôle 2 pour les tests de bout en bout.
 
 ---
 
-## Suivi
+## Règles de suivi
 
-### Mettre à jour sa progression
-1. **Cocher les cases de `ROADMAP.md`** dès qu'une tâche est terminée et vérifiée (pas « presque terminée »).
-2. **Un commit clair par tâche** : message au format `feat(sprint-2): scanner PWA avec html5-qrcode` ou `fix(...)` / `chore(...)`. La branche porte la tâche en cours (`feat/sprint-2-scanner-pwa`).
-3. **PR vers `main`** pour chaque tâche ; la PR référence la tâche cochée du roadmap.
-4. **En cas de blocage** : ne pas laisser une tâche bloquée en silence — signaler sur la PR/issue et, si la dépendance vient d'un autre rôle, le contacter directement.
-5. **Avant chaque début de sprint** : le groupe passe en revue le roadmap, redistribue si besoin, et Patrick valide le périmètre.
+1. **Cocher uniquement après preuve :** tâche intégrée dans `main`, CI requise verte et vérification adaptée à la tâche. Une PR ouverte, une fonctionnalité partielle ou une simple déclaration ne suffit pas.
+2. **Mise à jour dans la même PR :** le responsable coche les tâches réellement terminées dans `TEAM.md` et met à jour `STATUS.md` et `ROADMAP.md` si les tâches correspondantes y figurent.
+3. **Une tâche cohérente par commit/PR :** utiliser un message explicite, par exemple `feat(sprint-2): scanner PWA` ou `docs: update team task tracking`.
+4. **Respect des dépendances :** ne pas commencer une intégration qui dépend d'un backend ou d'une validation non disponible.
+5. **Blocage explicite :** décrire le blocage, son impact et la personne/le rôle attendu dans la PR ou l'issue.
+6. **Pas de push direct sur `main` :** travailler sur une branche et ouvrir une PR.
+7. **Validation humaine obligatoire :** Patrick (Rôle 0) doit approuver les changements de schéma, RLS, Auth, secrets ou données personnelles d'élèves avant leur merge.
+8. **Budget :** services free tier uniquement ; toute dépendance ou service payant doit être soumis à validation avant adoption.
 
-### Règles communes
-- Personne ne modifie le schéma de données sans validation de Patrick.
-- Jamais de secrets/clés dans les commits (`.env` reste git-ignoré).
-- Chaque PR doit être vérifiable : build qui passe, fonctionnalité testée manuellement dans le navigateur.
-- Budget : uniquement des services free tier — toute nouvelle dépendance payante doit être proposée avant d'être ajoutée.
