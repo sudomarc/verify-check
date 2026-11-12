@@ -9,8 +9,10 @@ Chaque agent de rôle (Rôles 2, 3, 4 de `TEAM.md`) travaille en autonomie et **
 1. **Lire avant de coder** : `STATUS.md` (état/blocages), `ROADMAP.md` (tâches cochables), `TEAM.md` (son rôle), `CONTRIBUTING.md` (ce fichier). Re-vérifier l'état réel du repo — `STATUS.md` peut être en retard sur la réalité.
 2. **Branche à partir de `main` à jour** : `git checkout main && git pull && git checkout -b feat/sprintX-<tache>`.
 3. **Coder la tâche** : la plus haute priorité cochable de son rôle dans `ROADMAP.md` ; ne pas toucher aux tâches des autres rôles.
-4. **Commit(s) clairs** : `feat(sprint-X): ...` / `fix: ...` / `docs: ...` — un commit par unité cohérente.
-5. **Pousser la branche** puis **ouvrir la PR vers `main`** en remplissant le template (description + tâche ROADMAP + checklist).
+4. **Messages de commit en français :** rédiger le type, le périmètre et le résumé en français. Préfixes autorisés : `fonctionnalite(sprint-X): ...`, `correction: ...`, `documentation: ...`, `tests: ...`, `refactorisation: ...`, `maintenance: ...`. Exemple : `fonctionnalite(sprint-2): ajouter le retour de confirmation du scan`. Un commit par unité cohérente.
+
+5. **Pousser la branche** puis **ouvrir la PR vers `main`** en remplissant le template. Le titre et toute la description de la PR doivent être rédigés en français : contexte, objectif, changements, tâche ROADMAP, vérifications, résultats et limites. Ne pas laisser de résumé automatique en anglais.
+
 6. **Attendre le check `CI / build`** : il est **requis** par la protection de branche — une PR rouge ne peut pas être mergée. Si la CI échoue : corriger sur la même branche, re-pousser.
 7. **Mettre à jour `STATUS.md` et `ROADMAP.md` dans la même PR, avant le merge** : actualiser la section du rôle et le handoff ; cocher uniquement les tâches ROADMAP réellement terminées. Pour une PR transverse qui ne termine aucune tâche listée, ne cocher aucune case et préciser ce périmètre dans `STATUS.md`.
 8. **Merger soi-même** : `gh pr merge <num> --squash --delete-branch` (squash = un commit propre par PR dans `main`).
@@ -26,6 +28,28 @@ Chaque agent de rôle (Rôles 2, 3, 4 de `TEAM.md`) travaille en autonomie et **
 Une PR qui touche le **schéma de données**, la **sécurité** (RLS, Auth, secrets) ou collecte des **données d'élèves** doit attendre une validation explicite de Patrick avant merge (mentionner `@sudomarc` dans la PR). Pour tout le reste, l'agent merge seul après CI verte.
 
 ---
+
+## Langue des contributions — règle obligatoire
+
+La langue de travail du dépôt est le **français**. Cette règle s'applique à tous les agents IA, contributeurs humains et outils de génération :
+
+- **Commits :** sujet et corps en français. Utiliser les préfixes français définis ci-dessus ; ne pas employer `feat`, `fix`, `docs` ou d'autres préfixes anglais.
+- **Pull Requests :** titre, description, résumé automatique ajouté par un agent et commentaires rédigés par le contributeur en français.
+- **Contenu :** expliquer en français le problème, la solution, les tests exécutés et ce qui reste non vérifié.
+- **Exceptions limitées :** conserver tels quels les identifiants techniques, noms propres, noms de commandes, API, bibliothèques, fichiers, variables, messages d'erreur cités et termes anglais indispensables à la précision technique. Ces exceptions ne justifient pas de rédiger une phrase entière en anglais.
+
+Exemples de titres de commit :
+
+- `fonctionnalite(sprint-2): connecter le scanner à l'API`
+- `correction: filtrer les cours selon le jour de la semaine`
+- `documentation: préciser les règles de contribution`
+- `tests: couvrir les scans en doublon`
+
+Exemples de titres de PR :
+
+- `Ajouter le retour de confirmation du scanner`
+- `Corriger le filtrage des cours du tableau de bord`
+- `Documenter les règles de sécurité Supabase`
 
 ## Règles humaines (rappel)
 
