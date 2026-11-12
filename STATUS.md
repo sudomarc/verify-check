@@ -5,7 +5,7 @@
 > 2. Le Rôle 1 (Patrick) met à jour les sections des autres dès qu'une de ses tâches débloque la leur.
 > 3. Ce fichier est un **instantané**, pas une source de vérité technique : en cas de doute, se fier au code sur `main` et à `ROADMAP.md`/`TEAM.md`.
 
-**Dernière mise à jour :** 2026-11-12 — Patrick (Rôle 1)
+**Dernière mise à jour :** 2026-11-12 — PR #7 (workflow agents)
 
 ---
 
@@ -36,3 +36,4 @@
 - *2026-11-12* — Fichier créé. Aucun déblocage : Rôle 1 démarre le schéma du Sprint 0.
 - *2026-11-12* — Fichier de schéma v1 commité (PR #4) + protection de `main` active (PR obligatoire, check CI, admins inclus).
 - *2026-11-12* — **Autonomie des agents** : règle « 1 review » retirée de la protection de `main`. Chaque agent (Rôles 2/3/4) ouvre ses PR et les merge lui-même après CI verte (workflow dans `CONTRIBUTING.md`). Exception : schéma de données / sécurité / données élèves = validation Patrick obligatoire.
+- *2026-11-12* — **PR #7 (transverse)** : workflow CI aligné sur Node 22 + vérification TypeScript et build ; procédure agents clarifiée ; suivi/handoff documenté. Aucune case ROADMAP cochée, car cette PR ne termine aucune tâche produit listée. CI vérifiée verte avant merge.
