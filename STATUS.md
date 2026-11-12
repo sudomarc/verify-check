@@ -10,23 +10,23 @@
 ---
 
 ## Rôle 1 — Backend/DB (Patrick) 🔨 EN COURS
-- **En cours :** Sprint 0 — schéma de base de données (`classes`, `students`, `sessions`, `attendance` + contrainte anti-doublon élève/session, RLS)
-- **Terminé :** —
-- **Bloqué sur :** validation du schéma (décision d'architecture humaine)
-- **Handoff :** aucun fichier de migration écrit pour l'instant ; la première version du schéma sera soumise à validation avant d'être commitée.
+- **En cours :** Sprint 1 — setup Supabase Cloud (projet, clés, variables Vercel)
+- **Terminé :** Sprint 0 — schéma v1.1 mergé (PR #4) : `classes`, `students`, `courses` (+`salle`), `attendance`, anti-doublon élève/cours/jour, RLS. ⚠️ SQL pas encore exécuté dans Supabase.
+- **Bloqué sur :** création du projet Supabase (compte humain requis)
+- **Handoff :** `supabase/schema.sql` v1.1 validé et mergé ; à exécuter dans le SQL Editor Supabase dès que le projet cloud existe.
 
 ## Rôle 2 — Frontend scanner ⏳ EN ATTENTE DU RÔLE 1
-- **Bloqué tant que :** tables + RLS + Supabase setup (Sprint 1, Rôle 1) ne sont pas en place, et l'endpoint scan (Sprint 2, Rôle 1) n'existe pas.
+- **Bloqué tant que :** le projet Supabase est créé et les tables exécutées (Sprint 1, Rôle 1), puis l'endpoint scan (Sprint 2, Rôle 1).
 - **Peut faire dès maintenant :** maquette de l'écran scan (Sprint 0, ROADMAP) — rien ne dépend du schéma.
 - **Débloqué :** —
 
 ## Rôle 3 — Frontend dashboard ⏳ EN ATTENTE DU RÔLE 1
-- **Bloqué tant que :** tables + RLS + Auth admin (Sprint 1, Rôle 1) ne sont pas en place (API dashboard plus tard, Sprint 3).
-- **Peut faire dès maintenant :** maquette de l'écran dashboard (Sprint 0, ROADMAP).
+- **Bloqué tant que :** projet Supabase + tables + Auth admin (Sprint 1, Rôle 1). Données mock typées déjà disponibles (`src/lib/mock-data.ts`, PR #3).
+- **Peut faire dès maintenant :** maquette de l'écran dashboard (Sprint 0, ROADMAP), éventuellement avec les mock-data.
 - **Débloqué :** —
 
 ## Rôle 4 — Carte ID + QR + intégration ⏳ EN ATTENTE DU RÔLE 1
-- **Bloqué tant que :** tables `students`/`classes` (Sprint 1, Rôle 1) ne sont pas en place.
+- **Bloqué tant que :** tables `students`/`classes` exécutées dans Supabase (Sprint 1, Rôle 1).
 - **Peut faire dès maintenant :** maquette de la carte élève (Sprint 0, ROADMAP).
 - **Débloqué :** —
 
@@ -34,3 +34,4 @@
 
 ## Événements de déblocage (historique court)
 - *2026-11-12* — Fichier créé. Aucun déblocage : Rôle 1 démarre le schéma du Sprint 0.
+- *2026-11-12* — Schéma v1.1 mergé (PR #4) + protection de `main` active (PR obligatoire, 1 review, check CI). Rôles 2–4 restent bloqués sur le setup Supabase (Rôle 1, Sprint 1).
