@@ -5,29 +5,28 @@
 > 2. Le Rôle 1 (Patrick) met à jour les sections des autres dès qu'une de ses tâches débloque la leur.
 > 3. Ce fichier est un **instantané**, pas une source de vérité technique : en cas de doute, se fier au code sur `main` et à `ROADMAP.md`/`TEAM.md`.
 
-**Dernière mise à jour :** 2026-11-12 — Patrick (Rôle 1)
+**Dernière mise à jour :** 2026-11-12 — PR #7 (workflow agents)
 
 ---
 
 ## Rôle 1 — Backend/DB (Patrick) 🔨 EN COURS
-- **En cours :** Sprint 0 — schéma de base de données (`classes`, `students`, `sessions`, `attendance` + contrainte anti-doublon élève/session, RLS)
-- **Terminé :** —
-- **Bloqué sur :** validation du schéma (décision d'architecture humaine)
-- **Handoff :** aucun fichier de migration écrit pour l'instant ; la première version du schéma sera soumise à validation avant d'être commitée.
+- **En cours :** Sprint 1 — setup Supabase Cloud (projet, clés, variables Vercel)
+- **Fichier commité :** schéma v1 (PR #4) : `classes`, `students`, `courses` (+`salle`), `attendance`. ⚠️ SQL non exécuté : la contrainte `UNIQUE (student_id, course_id, date(scanned_at))` doit être corrigée avant exécution (une contrainte `UNIQUE` ne prend pas d'expression).
+- **Bloqué sur :** création du projet Supabase (compte humain requis)
+- **Handoff :** avant exécution, faire valider par Patrick la correction de l'anti-doublon et le durcissement RLS : les policies actuelles accordent le CRUD à tout rôle `authenticated`, pas uniquement aux admins. Ensuite seulement, exécuter le SQL dans Supabase.
 
 ## Rôle 2 — Frontend scanner ⏳ EN ATTENTE DU RÔLE 1
-- **Bloqué tant que :** tables + RLS + Supabase setup (Sprint 1, Rôle 1) ne sont pas en place, et l'endpoint scan (Sprint 2, Rôle 1) n'existe pas.
+- **Bloqué tant que :** le projet Supabase est créé et les tables exécutées (Sprint 1, Rôle 1), puis l'endpoint scan (Sprint 2, Rôle 1).
 - **Peut faire dès maintenant :** maquette de l'écran scan (Sprint 0, ROADMAP) — rien ne dépend du schéma.
 - **Débloqué :** —
 
-## Rôle 3 — Frontend dashboard 🔨 SPRINT 0 LIVRÉ (à valider)
-- **En cours :** —
-- **Terminé :** Sprint 0 — maquette dashboard (`src/app/dashboard` + `src/components/dashboard`) : 3 vues (classe, cours, élève) sur données fictives, filtres date/export désactivés. **Non vérifié** : build non exécuté (Node absent sur le poste), pas encore validé par Patrick.
-- **Bloqué sur :** Rôle 1 pour le Sprint 1 (auth) et le Sprint 3 (vues réelles + API).
-- **Handoff :** branche `feat/sprint-0-dashboard-maquette` (basée sur `feat/mock-data`, mock non encore mergé). PR à ouvrir ; ne pas cocher la case ROADMAP avant validation + vérification navigateur.
+## Rôle 3 — Frontend dashboard ⏳ EN ATTENTE DU RÔLE 1
+- **Bloqué tant que :** projet Supabase + tables + Auth admin (Sprint 1, Rôle 1). Données mock typées déjà disponibles (`src/lib/mock-data.ts`, PR #3).
+- **Peut faire dès maintenant :** maquette de l'écran dashboard (Sprint 0, ROADMAP), éventuellement avec les mock-data.
+- **Débloqué :** —
 
 ## Rôle 4 — Carte ID + QR + intégration ⏳ EN ATTENTE DU RÔLE 1
-- **Bloqué tant que :** tables `students`/`classes` (Sprint 1, Rôle 1) ne sont pas en place.
+- **Bloqué tant que :** tables `students`/`classes` exécutées dans Supabase (Sprint 1, Rôle 1).
 - **Peut faire dès maintenant :** maquette de la carte élève (Sprint 0, ROADMAP).
 - **Débloqué :** —
 
@@ -35,3 +34,6 @@
 
 ## Événements de déblocage (historique court)
 - *2026-11-12* — Fichier créé. Aucun déblocage : Rôle 1 démarre le schéma du Sprint 0.
+- *2026-11-12* — Fichier de schéma v1 commité (PR #4) + protection de `main` active (PR obligatoire, check CI, admins inclus).
+- *2026-11-12* — **Autonomie des agents** : règle « 1 review » retirée de la protection de `main`. Chaque agent (Rôles 2/3/4) ouvre ses PR et les merge lui-même après CI verte (workflow dans `CONTRIBUTING.md`). Exception : schéma de données / sécurité / données élèves = validation Patrick obligatoire.
+- *2026-11-12* — **PR #7 (transverse)** : workflow CI aligné sur Node 22 + vérification TypeScript et build ; procédure agents clarifiée ; suivi/handoff documenté. Aucune case ROADMAP cochée, car cette PR ne termine aucune tâche produit listée. CI vérifiée verte avant merge.
