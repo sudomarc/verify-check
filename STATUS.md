@@ -34,4 +34,5 @@
 
 ## Événements de déblocage (historique court)
 - *2026-11-12* — Fichier créé. Aucun déblocage : Rôle 1 démarre le schéma du Sprint 0.
-- *2026-11-12* — Schéma v1.1 mergé (PR #4) + protection de `main` active (PR obligatoire, 1 review, check CI). Rôles 2–4 restent bloqués sur le setup Supabase (Rôle 1, Sprint 1).
+- *2026-11-12* — Schéma v1.1 mergé (PR #4) + protection de `main` active (PR obligatoire, check CI, admins inclus).
+- *2026-11-12* — **Autonomie des agents** : règle « 1 review » retirée de la protection de `main`. Chaque agent (Rôles 2/3/4) ouvre ses PR et les merge lui-même après CI verte (workflow dans `CONTRIBUTING.md`). Exception : schéma de données / sécurité / données élèves = validation Patrick obligatoire.
