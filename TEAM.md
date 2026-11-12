@@ -10,11 +10,11 @@ Ne pas coder une tâche avant que ses dépendances soient terminées (colonne «
 
 Ordre des tâches :
 
-1. **Sprint 0** — Schéma de base de données (students, classes, sessions, attendance) *(aucune dépendance — à faire en premier, tout le monde en dépend)*
+1. **Sprint 0** — Schéma de base de données (`classes`, `students`, `courses`, `attendance`) *(aucune dépendance — à faire en premier, tout le monde en dépend)*
 2. **Sprint 1** — Setup Supabase (projet cloud, clés, env Vercel)
 3. **Sprint 1** — Création des tables + RLS
 4. **Sprint 1** — Auth admin + protection des routes
-5. **Sprint 2** — Endpoint/logique : scan → salle → session active → écriture `attendance` horodatée + anti-doublon
+5. **Sprint 2** — Endpoint/logique : scan → salle → cours actif → écriture `attendance` horodatée + anti-doublon
 6. **Sprint 2** — Gestion des erreurs côté logique métier (double scan, QR invalide, pas de cours en cours)
 7. **Sprint 3** — Requêtes/API du dashboard (par classe / cours / élève, filtres, export absences)
 
@@ -58,7 +58,7 @@ Ordre des tâches :
 4. **Sprint 4** — Données de démo réalistes
 5. **Sprint 4** — Préparation de la présentation (scénario de démo) + coordination finale
 
-**Dépend de :** Rôle 1 (tables students/classes du Sprint 1 pour la génération des cartes ; données de démo du Sprint 4). Travaille avec le Rôle 2 pour les tests bout en bout.
+**Dépend de :** Rôle 1 (tables `students`/`classes` du Sprint 1 pour la génération des cartes ; données de démo du Sprint 4). Travaille avec le Rôle 2 pour les tests bout en bout.
 
 ---
 
