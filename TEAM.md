@@ -85,6 +85,8 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 
 ## Règles de suivi
 
+9. **Langue obligatoire — français :** tous les messages de commit, titres de Pull Request et descriptions de Pull Request doivent être rédigés intégralement en français. Les identifiants techniques imposés (noms de fichiers, commandes, API, noms de branches, mots-clés GitHub) peuvent rester inchangés. Les préfixes de commit doivent eux aussi être en français : `fonctionnalite:`, `correction:`, `documentation:`, `tests:`, `refactorisation:` ou `maintenance:`. Les titres de PR doivent décrire clairement le changement en français ; leur description doit expliquer le contexte, les modifications, les vérifications et les limites en français.
+
 1. **Cocher dans la PR qui termine la tâche :** le responsable peut préparer la case `[x]` dans sa PR, mais elle ne compte comme terminée qu'après fusion dans `main`, CI requise verte et vérification adaptée. Une PR ouverte, une fonctionnalité partielle ou une simple déclaration ne suffit pas.
 2. **Synchroniser la documentation dans la même PR :** mettre à jour `TEAM.md`, `STATUS.md` et `ROADMAP.md` lorsque la tâche correspondante y figure ; préciser les preuves et limites.
 3. **Une tâche cohérente par commit/PR :** utiliser un message explicite, par exemple `feat(sprint-2): scanner PWA` ou `docs: update team task tracking`.
