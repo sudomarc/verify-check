@@ -34,7 +34,13 @@ Aucune étape de build : HTML/CSS/JS statiques, lib QR vendorisée
 - Feedback **visuel** (bandeau + halo plein écran lisible à distance), **sonore**
   (WebAudio, aucun fichier) et **haptique** (`navigator.vibrate`).
 - États gérés : `idle`, `success`, `duplicate` (double scan), `invalid` (QR inconnu),
-  `no-course` (aucune session ouverte), `queued` (hors ligne).
+  `no-course` (aucune session ouverte), `queued` (hors ligne), `error`
+  (échec d'enregistrement côté service).
+- **Erreurs explicitées côté UI** : messages caméra distincts (permission refusée,
+  aucune caméra, caméra occupée, contexte non sécurisé), bouton « Réessayer »
+  fonctionnel + repli « Saisie manuelle », erreur en ligne sous le champ manuel,
+  bandeau en `role="alert"` pour les échecs, file hors-ligne conservée si la
+  synchronisation échoue.
 - **File hors-ligne** : les scans faits sans réseau sont stockés localement
   (`localStorage`) et rejoués au retour de la connexion.
 - Repli **saisie manuelle** (carte abîmée / caméra refusée) + torche + bascule caméra.
@@ -73,3 +79,8 @@ compteur/derniers scans cohérents, file hors-ligne vidée à la reconnexion,
 service worker `activated`.
 **Non vérifié ici** : le décodage réel d'un QR, faute de caméra/permission dans
 l'environnement de test. À valider sur un appareil réel (Rôle 4, Sprint 2/4).
+
+Les chemins d'erreur se testent sans backend : cocher « Simuler une panne
+d'enregistrement » dans les réglages (ou `VC.debug.setFailure(true)`) fait
+échouer l'écriture → état `error` + toast ; refuser la caméra déclenche le
+message « Caméra refusée » et le repli manuel.

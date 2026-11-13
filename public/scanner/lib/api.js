@@ -41,6 +41,7 @@ VC.api = (function () {
   const saveRecords = () => write(K_RECORDS, records);
 
   let forcedOffline = false;
+  let failureMode = false; // simulation : le « service » refuse l'écriture
   const listeners = new Set();
   const emit = () => listeners.forEach((fn) => fn());
 
@@ -94,10 +95,16 @@ VC.api = (function () {
       emit();
     },
     isForcedOffline: () => forcedOffline,
+    setFailureMode(value) {
+      failureMode = Boolean(value);
+      emit();
+    },
+    isFailureMode: () => failureMode,
 
     /**
-     * Enregistre une présence. Renvoie un statut explicite, jamais d'exception
-     * attendue : l'UI décide du feedback.
+     * Enregistre une présence. Renvoie un statut explicite pour les cas métier
+     * (doublon, QR inconnu…) et **lève une exception** si le service échoue :
+     * l'UI doit alors afficher l'état « error » et proposer de réessayer.
      * @returns {Promise<{status:'recorded'|'queued'|'duplicate'|'invalid'|'no-course'}>}
      */
     async recordAttendance({ courseId, studentId, code }) {
@@ -115,7 +122,8 @@ VC.api = (function () {
       };
 
       if (isOnline()) {
-        await delay(LATENCY_MS); // TODO API : POST /api/attendance (Rôle 1, Sprint 2)
+        await delay(LATENCY_MS); // TODO API : POST /api/scan (Rôle 1)
+        if (failureMode) throw new Error("Le service a refusé l'enregistrement");
         entry.synced = true;
       }
 
@@ -131,6 +139,7 @@ VC.api = (function () {
       const pending = records.filter((r) => !r.synced);
       if (!pending.length) return 0;
       await delay(LATENCY_MS); // TODO API : POST groupé
+      if (failureMode) throw new Error("Synchronisation refusée par le service");
       pending.forEach((r) => {
         r.synced = true;
       });

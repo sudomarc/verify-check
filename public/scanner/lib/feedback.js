@@ -15,11 +15,14 @@ VC.feedback = (function () {
   }
 
   // Tons : un "ok" montant, un "déjà scanné" neutre, une erreur grave.
+  // « error » (échec d'enregistrement) est plus long que « invalid » pour être
+  // distinguable : ce n'est pas la carte qui est en cause, mais le service.
   const TONES = {
     success: [{ f: 880, at: 0, d: 0.09 }, { f: 1320, at: 0.1, d: 0.14 }],
     duplicate: [{ f: 560, at: 0, d: 0.11 }, { f: 560, at: 0.16, d: 0.11 }],
     invalid: [{ f: 200, at: 0, d: 0.3 }],
     "no-course": [{ f: 200, at: 0, d: 0.3 }],
+    error: [{ f: 240, at: 0, d: 0.14 }, { f: 150, at: 0.18, d: 0.26 }],
     queued: [{ f: 660, at: 0, d: 0.1 }, { f: 440, at: 0.12, d: 0.12 }],
   };
 
@@ -28,8 +31,12 @@ VC.feedback = (function () {
     duplicate: [90, 50, 90],
     invalid: [140, 60, 140],
     "no-course": [140, 60, 140],
+    error: [120, 70, 120, 70, 120],
     queued: [70, 50, 70],
   };
+
+  // Tonalités « dures » (onde carrée) pour les états d'échec.
+  const HARSH = { invalid: true, "no-course": true, error: true };
 
   function play(kind) {
     const prefs = VC.prefs || {};
@@ -39,7 +46,7 @@ VC.feedback = (function () {
         const osc = c.createOscillator();
         const gain = c.createGain();
         const t0 = c.currentTime + t.at;
-        osc.type = kind === "invalid" || kind === "no-course" ? "square" : "sine";
+        osc.type = HARSH[kind] ? "square" : "sine";
         osc.frequency.setValueAtTime(t.f, t0);
         gain.gain.setValueAtTime(0.0001, t0);
         gain.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01);

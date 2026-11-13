@@ -50,7 +50,10 @@
         <div class="vf-overlay" id="vfOverlay">
           <strong id="vfTitle">Caméra indisponible</strong>
           <span id="vfText">Autorise la caméra, ou passe à la saisie manuelle.</span>
-          <button id="vfAction" type="button">Réessayer</button>
+          <div class="vf-actions">
+            <button id="vfAction" type="button">Réessayer</button>
+            <button id="vfAction2" type="button" class="ghost" hidden>Saisie manuelle</button>
+          </div>
         </div>
       </div>
 
@@ -83,7 +86,9 @@
       <form id="manualForm">
         <label for="manualInput">Code de la carte</label>
         <input id="manualInput" name="code" type="text" inputmode="text" autocomplete="off"
-               autocapitalize="characters" spellcheck="false" placeholder="VC-6A-0001" required>
+               autocapitalize="characters" spellcheck="false" placeholder="VC-6A-0001"
+               aria-describedby="manualError" required>
+        <p class="field-error" id="manualError" role="alert" hidden></p>
         <button type="submit">Valider la présence</button>
       </form>
       <h2>Cartes de cette classe (démo)</h2>
@@ -111,6 +116,10 @@
     <div class="field">
       <label for="setCourse">Cours simulé</label>
       <select id="setCourse"></select>
+    </div>
+    <div class="field">
+      <label for="setFailure">Simuler une panne d'enregistrement</label>
+      <input type="checkbox" id="setFailure">
     </div>
 
     <div class="actions">
