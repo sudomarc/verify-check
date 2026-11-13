@@ -35,7 +35,7 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
 
 - [ ] Setup Supabase (projet cloud, clés, variables d'environnement Vercel)
 - [x] Création des tables + RLS activé sur chaque table
-- [ ] Auth admin (direction) : login, protection des routes admin
+- [x] Auth admin (direction) : login, protection des routes admin
 - [ ] Génération carte ID + QR unique par élève (page de génération + rendu imprimable)
 - [ ] Données minimales de test (quelques élèves/classes factices)
 
