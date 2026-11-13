@@ -5,7 +5,7 @@
 > 2. Le Rôle 1 (Patrick) met à jour les sections des autres dès qu'une de ses tâches débloque la leur.
 > 3. Ce fichier est un **instantané**, pas une source de vérité technique : en cas de doute, se fier au code sur `main` et à `ROADMAP.md`/`TEAM.md`.
 
-**Dernière mise à jour :** 2026-11-13 — Rôle 1 : audit backend (cycle de session, logout serveur, tests, CI) fusionné en PR ; schéma + backend Sprint 1–3 déjà appliqués et vérifiés dans Supabase
+**Dernière mise à jour :** 2026-11-13 — Rôle 1 : audit backend fusionné (PR #16) ; `.env.example` commité avec les variables **publiques** Supabase pour tous les rôles (les tokens privés restent dans `.env`, ignoré par Git)
 
 ---
 
@@ -30,6 +30,13 @@
 - **Débloqué côté backend (Sprint 1)** : tables `students`/`classes` exécutées dans Supabase — la génération de cartes peut commencer.
 - **Peut faire dès maintenant :** maquette de la carte élève (Sprint 0, ROADMAP).
 - **Débloqué :** —
+
+---
+
+## Variables d'environnement (pour tous les rôles)
+
+Les variables **publiques** du projet Supabase (URL + clé `anon`) sont commitées en vraies valeurs dans **`.env.example`** : copiez-le en `.env.local` pour développer (`cp .env.example .env.local`) ou reprenez les valeurs directement. La clé `anon` est publique par conception (RLS côté base) — côté serveur/node, copier le fichier en `.env.local` suffit pour Next.js.
+Les tokens privés (`GITHUB_TOKEN`, `SUPABASE_TOKEN`, `VERCEL_TOKEN`) vivent **uniquement** dans le `.env` local de Patrick, jamais commité ni copié.
 
 ---
 
