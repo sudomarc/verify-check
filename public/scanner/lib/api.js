@@ -66,7 +66,11 @@ VC.api = (function () {
         })
     );
   }
-  const queueAll = () => dbOp("readonly", (s, done) => (done(s.getAll())));
+  const queueAll = () =>
+    dbOp("readonly", (store, done) => {
+      const request = store.getAll();
+      request.onsuccess = () => done(request.result || []);
+    });
   const queuePut = (item) => dbOp("readwrite", (s) => s.put(item));
   const queueDelete = (id) => dbOp("readwrite", (s) => s.delete(id));
   const queueClear = () => dbOp("readwrite", (s) => s.clear());
