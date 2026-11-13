@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="description" content="Scanner la carte QR d'un élève pour marquer sa présence au cours.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>VerifyCheck — Scanner</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="flash" id="flash" aria-hidden="true"></div>
+
+  <div class="app" id="app" data-state="idle">
+
+    <header class="topbar">
+      <div class="brand"><i class="dot" aria-hidden="true"></i>VerifyCheck</div>
+      <span class="chip is-online" id="net" aria-live="polite">En ligne</span>
+      <button class="icon-btn spacer" id="installBtn" hidden>Installer</button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Réglages" title="Réglages">⚙</button>
+    </header>
+
+    <section class="session" aria-label="Cours en cours">
+      <div class="row">
+        <h1 id="classe">—</h1>
+        <span class="badge" id="badge">—</span>
+      </div>
+      <p class="meta" id="cours">—</p>
+    </section>
+
+    <!-- ÉCRAN SCAN -->
+    <main class="screen on" id="screenScan">
+      <div class="viewfinder" id="viewfinder">
+        <div id="reader"></div>
+        <div class="reticle" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="scanline" aria-hidden="true"></div>
+        <p class="vf-hint">Place la carte QR dans le cadre</p>
+
+        <div class="cam-tools">
+          <button id="torchBtn" aria-label="Lampe" title="Lampe" hidden>☀</button>
+          <button id="switchCamBtn" aria-label="Changer de caméra" title="Changer de caméra" hidden>⇄</button>
+        </div>
+
+        <div class="vf-overlay" id="vfOverlay">
+          <strong id="vfTitle">Caméra indisponible</strong>
+          <span id="vfText">Autorise la caméra, ou passe à la saisie manuelle.</span>
+          <button id="vfAction" type="button">Réessayer</button>
+        </div>
+      </div>
+
+      <div class="feedback" id="feedback" role="status" aria-live="polite">
+        <div class="icon" id="fbIcon">…</div>
+        <div>
+          <div class="title" id="fbTitle">En attente d'un scan</div>
+          <div class="sub" id="fbSub">Approche la carte élève de la caméra.</div>
+        </div>
+        <div class="time" id="fbTime"></div>
+      </div>
+
+      <div class="counter">
+        <div class="line">
+          <span class="num" id="count">0<small>/0</small></span>
+          <span class="label">présents dans ce cours</span>
+        </div>
+        <div class="bar" role="progressbar" aria-label="Progression des présences"><i id="barFill"></i></div>
+      </div>
+
+      <div class="recent">
+        <h2>Derniers scans</h2>
+        <ul id="recentList"></ul>
+      </div>
+    </main>
+
+    <!-- ÉCRAN SAISIE MANUELLE (repli caméra / carte abîmée) -->
+    <main class="screen manual" id="screenManual">
+      <p>Si la caméra ne fonctionne pas ou que la carte est abîmée, saisis le code imprimé sur la carte.</p>
+      <form id="manualForm">
+        <label for="manualInput">Code de la carte</label>
+        <input id="manualInput" name="code" type="text" inputmode="text" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" placeholder="VC-6A-0001" required>
+        <button type="submit">Valider la présence</button>
+      </form>
+      <h2>Cartes de cette classe (démo)</h2>
+      <div class="codes" id="manualCodes"></div>
+    </main>
+
+    <nav class="tabs" role="tablist" aria-label="Modes de scan">
+      <button id="tabScan" role="tab" aria-selected="true" aria-controls="screenScan">Scan caméra</button>
+      <button id="tabManual" role="tab" aria-selected="false" aria-controls="screenManual">Saisie manuelle</button>
+    </nav>
+  </div>
+
+  <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
+    <h2 id="settingsTitle">Réglages</h2>
+    <p class="note">Mode démo : le cours « en cours » et les données viennent de <code>lib/mock-data.js</code>, en attendant l'API du Rôle 1.</p>
+
+    <div class="field">
+      <label for="setSound">Son de confirmation</label>
+      <input type="checkbox" id="setSound" checked>
+    </div>
+    <div class="field">
+      <label for="setVibrate">Vibration</label>
+      <input type="checkbox" id="setVibrate" checked>
+    </div>
+    <div class="field">
+      <label for="setCourse">Cours simulé</label>
+      <select id="setCourse"></select>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="danger" id="resetData">Effacer les scans locaux</button>
+      <button type="button" class="primary" id="closeSettings">Fermer</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <noscript>
+    <p style="padding:24px;color:#e8eef4">Le scanner a besoin de JavaScript (caméra et décodage QR).</p>
+  </noscript>
+
+  <script src="vendor/html5-qrcode.min.js"></script>
+  <script src="lib/mock-data.js"></script>
+  <script src="lib/feedback.js"></script>
+  <script src="lib/api.js"></script>
+  <script src="lib/qr.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
