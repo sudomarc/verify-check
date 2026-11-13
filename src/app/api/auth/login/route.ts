@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
-  REFRESH_COOKIE,
-  SESSION_COOKIE,
   createServerSupabase,
+  setSessionCookies,
   supabaseAnonKey,
   supabaseUrl,
 } from "@/lib/auth";
@@ -42,19 +41,6 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE, data.session.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60, // 1 h — durée de session poste tablette
-  });
-  response.cookies.set(REFRESH_COOKIE, data.session.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 8, // 8 h — journée scolaire
-  });
+  setSessionCookies(response, data.session);
   return response;
 }

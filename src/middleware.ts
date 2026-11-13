@@ -1,10 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, createServerSupabase } from "@/lib/auth";
+import {
+  REFRESH_COOKIE,
+  SESSION_COOKIE,
+  createServerSupabase,
+  isAdminRole,
+  setSessionCookies,
+} from "@/lib/auth";
 
 /**
  * Protection des routes admin (Sprint 1).
  * - `/dashboard` et `/scan` exigent une session admin valide ;
  * - le JWT est vérifié auprès de Supabase (pas une simple présence de cookie) ;
+ * - si l'access token est expiré, la session est renouvelée via le refresh
+ *   token (cookie 8 h) et les cookies sont ré-écrits (rotation) ;
  * - les endpoints `/api/**` gèrent leur propre auth (401 JSON).
  */
 
@@ -17,17 +25,35 @@ export async function middleware(request: NextRequest) {
   );
   if (!isProtectedPage) return NextResponse.next();
 
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return redirectToLogin(request);
+  const accessToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+  if (!accessToken) return redirectToLogin(request);
 
   // Vérification réseau du JWT auprès de Supabase (source de vérité).
-  const supabase = createServerSupabase(token);
-  const { data, error } = await supabase.auth.getUser(token);
-  const user = data?.user;
-  const role = (user?.app_metadata as Record<string, unknown> | undefined)?.role;
-  if (error || !user || role !== "admin") return redirectToLogin(request);
+  const supabase = createServerSupabase(accessToken);
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  let user = data?.user;
+  let rotated: { access_token: string; refresh_token: string } | undefined;
 
-  return NextResponse.next();
+  if ((error || !user) && refreshToken) {
+    // Access token expiré → renouvellement silencieux (access + refresh tournés).
+    const refreshed = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    if (!refreshed.error && refreshed.data?.session && refreshed.data.user) {
+      rotated = {
+        access_token: refreshed.data.session.access_token,
+        refresh_token: refreshed.data.session.refresh_token,
+      };
+      user = refreshed.data.user;
+    }
+  }
+
+  if (!user || !isAdminRole(user as { app_metadata?: Record<string, unknown> })) {
+    return redirectToLogin(request);
+  }
+
+  const response = NextResponse.next();
+  if (rotated) setSessionCookies(response, rotated);
+  return response;
 }
 
 function redirectToLogin(request: NextRequest) {

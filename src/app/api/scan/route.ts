@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, createServerSupabase, requireAdmin } from "@/lib/auth";
+import {
+  REFRESH_COOKIE,
+  SESSION_COOKIE,
+  createServerSupabase,
+  requireAdmin,
+  setSessionCookies,
+} from "@/lib/auth";
 import { isCourseActive, schoolInstant } from "@/lib/time";
+import { selectCourse } from "@/lib/scan";
 
 /**
  * POST /api/scan — Sprint 2 : flux scan → cours actif → écriture attendance.
@@ -26,7 +33,8 @@ type CourseRow = {
 };
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request.cookies.get(SESSION_COOKIE)?.value);
+  const accessToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const auth = await requireAdmin(accessToken, request.cookies.get(REFRESH_COOKIE)?.value);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -43,7 +51,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "code_qr_requis" }, { status: 400 });
   }
 
-  const supabase = createServerSupabase(request.cookies.get(SESSION_COOKIE)?.value);
+  const supabase = createServerSupabase(auth.session?.access_token ?? accessToken);
   const now = schoolInstant();
 
   // 1) Élève par code QR
@@ -73,14 +81,11 @@ export async function POST(request: NextRequest) {
   }
 
   // 3) Salle du portique : filtre si fournie
-  let course = slotCourses[0];
-  if (salle) {
-    const match = slotCourses.find((c) => c.salle === salle);
-    if (!match) {
-      return NextResponse.json({ error: "salle_invalide", salle }, { status: 409 });
-    }
-    course = match;
+  const selection = selectCourse(slotCourses, salle);
+  if (!selection.ok) {
+    return NextResponse.json({ error: selection.error, salle: selection.salle }, { status: 409 });
   }
+  const course = selection.course;
 
   // 4) Écriture de la présence — l'index unique garantit 1/jour/cours/élève
   const { data: presence, error: insertError } = await supabase
@@ -98,7 +103,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "erreur_base" }, { status: 500 });
   }
 
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       ok: true,
       eleve: student.nom,
@@ -108,4 +113,6 @@ export async function POST(request: NextRequest) {
     },
     { status: 201 }
   );
+  if (auth.session) setSessionCookies(response, auth.session);
+  return response;
 }
