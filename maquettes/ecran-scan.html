@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VerifyCheck — Maquette écran scan</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#141b23; --panel-2:#1b2531; --line:#26323f;
+    --text:#e8eef4; --muted:#93a4b5; --accent:#22c55e; --accent-ink:#06240f;
+    --warn:#f59e0b; --danger:#ef4444; --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:#0a0d11; color:var(--text);
+    font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-wrap:wrap; gap:34px; align-items:flex-start;
+    justify-content:center; padding:28px 20px 48px;
+  }
+
+  /* ---------- colonne de contrôle (maquette seulement) ---------- */
+  .controls{width:264px}
+  .controls h1{font-size:16px;margin:0 0 4px}
+  .controls .hint{color:var(--muted);font-size:12.5px;margin:0 0 18px}
+  .controls button{
+    display:block;width:100%;text-align:left;background:var(--panel);color:var(--text);
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;
+    font:inherit;font-size:13.5px;cursor:pointer;
+  }
+  .controls button:hover{border-color:#3b4d60}
+  .controls button[aria-pressed="true"]{border-color:var(--accent);background:#12271b;color:#d7f7e3}
+  .controls .sep{height:1px;background:var(--line);margin:16px 0}
+  .controls .note{color:var(--muted);font-size:12px;margin:0}
+
+  /* ---------- téléphone ---------- */
+  .phone{
+    width:390px;flex:0 0 auto;background:#05080b;border:1px solid #202b36;
+    border-radius:38px;padding:12px;box-shadow:0 30px 60px -25px #000;
+  }
+  .screen{background:var(--bg);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;min-height:760px}
+
+  /* barre du haut */
+  .topbar{display:flex;align-items:center;gap:8px;padding:16px 18px 12px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .chip{font-size:11.5px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--muted);background:var(--panel)}
+  .chip.is-online{color:#bbf7d0;border-color:#14532d;background:#08220f}
+  .chip.is-offline{color:#fde68a;border-color:#4d3a0f;background:#241c07}
+  .icon-btn{margin-left:auto;width:38px;height:38px;border-radius:10px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;font-size:16px;color:var(--text)}
+
+  /* contexte du cours */
+  .session{padding:2px 18px 12px;border-bottom:1px solid var(--line)}
+  .session .row{display:flex;align-items:center;gap:8px}
+  .session h2{margin:0;font-size:19px;letter-spacing:-.2px}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:#0e2a19;color:#86efac;border:1px solid #1c5c37;border-radius:6px;padding:3px 7px}
+  .badge.is-off{background:#2a1414;color:#fecaca;border-color:#5c1d1d}
+  .session .meta{color:var(--muted);font-size:13px;margin:6px 0 0}
+
+  /* viseur caméra */
+  .viewfinder{position:relative;flex:1;min-height:280px;margin:12px 12px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202b 0%,#0c1218 70%)}
+  .reticle{position:absolute;inset:0;margin:auto;width:230px;height:230px}
+  .reticle span{position:absolute;width:40px;height:40px;border:3px solid var(--accent);border-radius:8px}
+  .reticle span:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+  .reticle span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+  .reticle span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+  .reticle span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+  .scanline{position:absolute;left:12%;right:12%;height:2px;top:28%;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.75;animation:sweep 2.4s ease-in-out infinite}
+  @keyframes sweep{0%,100%{top:24%}50%{top:74%}}
+  .vf-hint{position:absolute;left:0;right:0;bottom:14px;margin:0;text-align:center;color:var(--muted);font-size:12.5px}
+  .cam-tools{position:absolute;top:10px;right:10px;display:flex;gap:8px}
+  .cam-tools button{width:40px;height:40px;border-radius:50%;background:rgba(20,27,35,.85);border:1px solid var(--line);color:var(--text);font-size:16px}
+  .vf-overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;background:#0c1218;font-size:13.5px;color:var(--muted)}
+  .vf-overlay strong{color:var(--text);font-size:15px}
+  .vf-overlay button{min-height:42px;padding:0 16px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);color:var(--text)}
+  .app[data-state="no-course"] .viewfinder .reticle,
+  .app[data-state="no-course"] .viewfinder .scanline{display:none}
+  .app[data-state="no-course"] .vf-overlay{display:flex}
+  .app[data-state="no-course"] .vf-overlay .cam-btn{display:none}
+
+  /* feedback */
+  .feedback{margin:12px;border-radius:var(--radius);padding:12px 14px;border:1px solid var(--line);background:var(--panel);display:flex;gap:12px;align-items:flex-start;min-height:66px}
+  .feedback .icon{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;font-size:18px;font-weight:700;background:var(--panel-2);color:var(--muted)}
+  .feedback .title{font-weight:650;font-size:15px}
+  .feedback .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .feedback .time{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
+  .app[data-state="success"] .feedback{border-color:#1c5c37;background:#08220f}
+  .app[data-state="success"] .feedback .icon{background:var(--accent);color:var(--accent-ink)}
+  .app[data-state="success"] .feedback .title{color:#bbf7d0}
+  .app[data-state="duplicate"] .feedback{border-color:#4d3a0f;background:#241c07}
+  .app[data-state="duplicate"] .feedback .icon{background:var(--warn);color:#3a2a00}
+  .app[data-state="duplicate"] .feedback .title{color:#fde68a}
+  .app[data-state="invalid"] .feedback,
+  .app[data-state="no-course"] .feedback{border-color:#5c1d1d;background:#220b0b}
+  .app[data-state="invalid"] .feedback .icon,
+  .app[data-state="no-course"] .feedback .icon{background:var(--danger);color:#2a0505}
+  .app[data-state="invalid"] .feedback .title,
+  .app[data-state="no-course"] .feedback .title{color:#fecaca}
+  .app[data-state="queued"] .feedback{border-color:#3b4d60;background:var(--panel-2)}
+  .app[data-state="queued"] .feedback .icon{background:#334155;color:#e2e8f0}
+
+  /* compteur */
+  .counter{padding:0 18px}
+  .counter .line{display:flex;align-items:baseline;gap:8px}
+  .counter .num{font-size:22px;font-weight:700}
+  .counter .num small{font-size:14px;color:var(--muted);font-weight:500}
+  .counter .label{margin-left:auto;color:var(--muted);font-size:12.5px}
+  .bar{height:7px;border-radius:99px;background:var(--panel-2);margin-top:8px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .25s ease}
+
+  /* derniers scans */
+  .recent{padding:14px 18px 10px;flex:1;overflow-y:auto}
+  .recent h3{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 10px}
+  .recent ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .recent li{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+  .recent .ini{width:30px;height:30px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--panel-2);color:#cbd5e1}
+  .recent .who{font-size:13.5px}
+  .recent .who span{display:block;color:var(--muted);font-size:12px}
+  .recent .at{margin-left:auto;color:var(--muted);font-size:12.5px}
+
+  /* onglets */
+  .tabs{display:flex;border-top:1px solid var(--line);background:var(--panel)}
+  .tabs button{flex:1;min-height:48px;background:none;border:0;color:var(--muted);font-size:13px;padding:14px 0}
+  .tabs button[aria-selected="true"]{color:var(--accent);font-weight:650}
+
+  @media (prefers-reduced-motion:reduce){.scanline{animation:none;top:50%}.bar i{transition:none}}
+</style>
+</head>
+<body>
+
+  <!-- Colonne de contrôle : sert uniquement à présenter les états. -->
+  <aside class="controls">
+    <h1>Maquette — écran scan</h1>
+    <p class="hint">Représentation statique des états du scanner (Sprint 2). Aucune caméra ici : le PWA réel est dans <code>public/scanner/</code>.</p>
+    <button type="button" data-set="idle" aria-pressed="true">En attente d'un scan</button>
+    <button type="button" data-set="success" aria-pressed="false">Présence validée</button>
+    <button type="button" data-set="duplicate" aria-pressed="false">Déjà scanné (doublon)</button>
+    <button type="button" data-set="invalid" aria-pressed="false">Carte non reconnue</button>
+    <button type="button" data-set="queued" aria-pressed="false">Enregistré hors ligne</button>
+    <button type="button" data-set="no-course" aria-pressed="false">Aucun cours en cours</button>
+    <div class="sep"></div>
+    <button type="button" id="netBtn" aria-pressed="false">Basculer hors ligne</button>
+    <p class="note">Le halo plein écran (feedback lisible à distance) et le son/vibration ne sont pas rendus dans une maquette statique.</p>
+  </aside>
+
+  <!-- Téléphone -->
+  <div class="phone">
+    <div class="screen app" id="app" data-state="idle">
+
+      <header class="topbar">
+        <span class="brand"><i class="dot"></i>VerifyCheck</span>
+        <span class="chip is-online" id="net">En ligne</span>
+        <span class="icon-btn" aria-hidden="true">&#9881;</span>
+      </header>
+
+      <section class="session">
+        <div class="row">
+          <h2 id="classe">6ème A</h2>
+          <span class="badge" id="badge">Session active</span>
+        </div>
+        <p class="meta" id="cours">Mathématiques · 08:00 – 10:00</p>
+      </section>
+
+      <div class="viewfinder">
+        <div class="reticle" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="scanline" aria-hidden="true"></div>
+        <p class="vf-hint">Place la carte QR dans le cadre</p>
+        <div class="cam-tools"><button class="cam-btn" aria-label="Lampe">&#9728;</button></div>
+        <div class="vf-overlay">
+          <strong>Aucun cours en cours</strong>
+          <span>Le scan est désactivé. Demande à la direction d'ouvrir une session.</span>
+          <button type="button">Ouvrir les réglages</button>
+        </div>
+      </div>
+
+      <div class="feedback">
+        <div class="icon" id="fbIcon">&hellip;</div>
+        <div>
+          <div class="title" id="fbTitle">En attente d'un scan</div>
+          <div class="sub" id="fbSub">Approche la carte élève de la caméra.</div>
+        </div>
+        <div class="time" id="fbTime"></div>
+      </div>
+
+      <div class="counter">
+        <div class="line">
+          <span class="num" id="count">2<small>/4</small></span>
+          <span class="label">présents dans ce cours</span>
+        </div>
+        <div class="bar"><i id="barFill" style="width:50%"></i></div>
+      </div>
+
+      <div class="recent">
+        <h3>Derniers scans</h3>
+        <ul id="recentList"></ul>
+      </div>
+
+      <nav class="tabs">
+        <button type="button" aria-selected="true">Scan caméra</button>
+        <button type="button" aria-selected="false">Saisie manuelle</button>
+      </nav>
+
+    </div>
+  </div>
+
+<script>
+  // Maquette : on ne fait que basculer l'état affiché.
+  const STATES = {
+    idle:      { icon:"…", title:"En attente d'un scan",  sub:"Approche la carte élève de la caméra.", time:"",     count:[2,4] },
+    success:   { icon:"✓", title:"Présence validée",      sub:"Fatoumata Diallo · VC-6A-0001",         time:"08:14", count:[3,4] },
+    duplicate: { icon:"!", title:"Déjà scanné",           sub:"Fatoumata Diallo est déjà présent(e) pour ce cours.", time:"08:15", count:[3,4] },
+    invalid:   { icon:"✕", title:"Carte non reconnue",    sub:"Aucun élève pour « ZZ-9999 ».",         time:"08:16", count:[3,4] },
+    queued:    { icon:"↻", title:"Enregistré hors ligne", sub:"Mamadou Camara · sera synchronisé au retour du réseau.", time:"08:17", count:[4,4] },
+    "no-course":{ icon:"✕", title:"Aucun cours en cours", sub:"Aucune session ouverte pour le moment.", time:"",    count:[0,0] }
+  };
+
+  const RECENT = [
+    ["FD","Fatoumata Diallo","VC-6A-0001","08:14"],
+    ["AB","Aïssatou Barry","VC-6A-0003","08:11"],
+    ["MC","Mamadou Camara","VC-6A-0002","08:09"]
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  let offline = false;
+
+  function render(state){
+    const s = STATES[state];
+    $("app").dataset.state = state;
+    $("fbIcon").textContent = s.icon;
+    $("fbTitle").textContent = s.title;
+    $("fbSub").textContent = s.sub;
+    $("fbTime").textContent = s.time;
+    $("count").innerHTML = s.count[0] + "<small>/" + s.count[1] + "</small>";
+    $("barFill").style.width = s.count[1] ? Math.round(s.count[0]/s.count[1]*100) + "%" : "0%";
+
+    if(state === "no-course"){
+      $("classe").textContent = "—";
+      $("badge").textContent = "Aucune session";
+      $("badge").className = "badge is-off";
+      $("cours").textContent = "La direction doit ouvrir une session pour scanner.";
+    } else {
+      $("classe").textContent = "6ème A";
+      $("badge").textContent = "Session active";
+      $("badge").className = "badge";
+      $("cours").textContent = "Mathématiques · 08:00 – 10:00" + (offline ? " · hors ligne" : "");
+    }
+    renderNet();
+    document.querySelectorAll(".controls [data-set]").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.set === state)));
+  }
+
+  function renderNet(){
+    const chip = $("net");
+    const pending = offline || $("app").dataset.state === "queued";
+    chip.textContent = (offline ? "Hors ligne" : "En ligne") + (pending ? " · 1 en attente" : "");
+    chip.className = "chip " + (offline ? "is-offline" : "is-online");
+
+    $("recentList").innerHTML = RECENT.map(([ini, name, code, at], i) =>
+      '<li><span class="ini">' + ini + '</span><span class="who">' + name +
+      '<span>' + code + (offline && i === 0 ? " · en attente" : "") + '</span></span>' +
+      '<span class="at">' + at + '</span></li>').join("");
+  }
+
+  document.querySelectorAll(".controls [data-set]").forEach((btn) =>
+    btn.addEventListener("click", () => render(btn.dataset.set)));
+
+  $("netBtn").addEventListener("click", (e) => {
+    offline = !offline;
+    e.currentTarget.setAttribute("aria-pressed", String(offline));
+    render($("app").dataset.state);
+  });
+
+  render("idle");
+</script>
+</body>
+</html>
