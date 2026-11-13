@@ -8,7 +8,13 @@ export function csvEscape(value: string): string {
 }
 
 export type CsvClassRow = { id: string; nom: string };
-export type CsvCourseRow = { id: string; nom: string; classe_id: string; jour_semaine: number };
+export type CsvCourseRow = {
+  id: string;
+  nom: string;
+  classe_id: string;
+  jour_semaine: number;
+  heure_fin?: string;
+};
 export type CsvStudentRow = { id: string; nom: string; classe_id: string };
 export type CsvAttendanceRow = { student_id: string; course_id: string };
 
@@ -19,7 +25,13 @@ export function buildAbsencesCsv(
     students: CsvStudentRow[];
     attendance: CsvAttendanceRow[];
   },
-  options: { date: string; weekday: number; classe?: string }
+  options: {
+    date: string;
+    weekday: number;
+    classe?: string;
+    /** Instant scolaire actuel (Conakry) — un cours non terminé n'est pas absent. */
+    now?: { jour: string; heure: string };
+  }
 ): string {
   const classNameById = new Map(raw.classes.map((c) => [c.id, c.nom]));
 
@@ -30,13 +42,26 @@ export function buildAbsencesCsv(
   const planned = raw.courses.filter(
     (c) => c.jour_semaine === options.weekday && classIds.has(c.classe_id)
   );
+  // Honnêteté métier : un élève sans scan n'est PAS absent tant que le cours
+  // n'est pas terminé (journée passée = tous terminés ; journée du jour =
+  // seulement les cours dont l'heure de fin est passée).
+  const termines = planned.filter((c) => {
+    if (!options.now || options.date < options.now.jour) return true;
+    if (options.date > options.now.jour) return false;
+    if (!c.heure_fin) return false; // inconnu → on ne déclare pas absent
+    const [h, m] = c.heure_fin.split(":").map(Number);
+    const fin = (h ?? 0) * 60 + (m ?? 0);
+    const [nh, nm] = options.now.heure.split(":").map(Number);
+    const maintenant = (nh ?? 0) * 60 + (nm ?? 0);
+    return fin <= maintenant;
+  });
   const scannedPairs = new Set(raw.attendance.map((a) => `${a.student_id}|${a.course_id}`));
 
   const lines: string[] = [
     ["date", "eleve", "classe", "cours", "statut"].map(csvEscape).join(","),
   ];
   for (const student of visibleStudents) {
-    for (const course of planned) {
+    for (const course of termines) {
       if (course.classe_id !== student.classe_id) continue;
       if (scannedPairs.has(`${student.id}|${course.id}`)) continue;
       lines.push(

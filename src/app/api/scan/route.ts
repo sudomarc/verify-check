@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  let body: { code_qr?: string; salle?: string };
+  let body: { code_qr?: string; salle?: string; cours?: string };
   try {
     body = await request.json();
   } catch {
@@ -80,10 +80,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "pas_de_cours", jour: now.jour, heure: now.heure }, { status: 404 });
   }
 
-  // 3) Salle du portique : filtre si fournie
-  const selection = selectCourse(slotCourses, salle);
+  // 3) Désambiguïsation : salle du portique ou cours explicite. JAMAIS de choix arbitraire.
+  const selection = selectCourse(slotCourses, { salle, cours: body.cours });
   if (!selection.ok) {
-    return NextResponse.json({ error: selection.error, salle: selection.salle }, { status: 409 });
+    if (selection.error === "cours_ambigu") {
+      return NextResponse.json(
+        {
+          error: selection.error,
+          candidates: selection.candidates.map((c) => ({
+            id: c.id,
+            nom: c.nom,
+            salle: c.salle,
+            heure_debut: c.heure_debut,
+            heure_fin: c.heure_fin,
+          })),
+        },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(
+      { error: selection.error, salle: (selection as { salle?: string }).salle, cours: (selection as { cours?: string }).cours },
+      { status: 409 }
+    );
   }
   const course = selection.course;
 

@@ -1,38 +1,53 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  getAttendanceByCourse,
-  getCoursesByClasse,
-  getStudentsByClasse,
-  mockAttendance,
-  mockClasses,
-  mockCourses,
-  mockStudents,
-  type Course,
-  type Student,
-} from "@/lib/mock-data";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 
-type View = "classe" | "cours" | "eleve";
-
-const VIEWS: { id: View; label: string }[] = [
-  { id: "classe", label: "Par classe" },
-  { id: "cours", label: "Par cours" },
-  { id: "eleve", label: "Par élève" },
-];
+/**
+ * Dashboard direction — données RÉELLES via GET /api/dashboard.
+ * Distinction métier : présent (scan serveur) / non pointé (cours non terminé)
+ * / absent (cours terminé sans scan). Jamais de mock en production.
+ */
 
 const TIME_ZONE = "Africa/Conakry";
-const DEMO_DATE = "2026-11-09";
-const DEMO_DATE_VALUE = new Date(`${DEMO_DATE}T00:00:00.000Z`);
-const DEMO_DATE_LABEL = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  timeZone: TIME_ZONE,
-}).format(DEMO_DATE_VALUE);
-const DEMO_WEEKDAY = DEMO_DATE_VALUE.getUTCDay();
+
+type Classe = { id: string; nom: string };
+type Cours = {
+  id: string;
+  nom: string;
+  classe_id: string;
+  salle: string | null;
+  heure_debut: string;
+  heure_fin: string;
+};
+type Eleve = {
+  id: string;
+  nom: string;
+  code_qr: string;
+  classe_id: string;
+  scans: number;
+  presences: Array<{ course_id: string; scanned_at: string }>;
+};
+type DashboardData = {
+  date: string;
+  jour_semaine: number;
+  classes: Classe[];
+  cours_prevus: Cours[];
+  effectif: number;
+  presents: number;
+  scans: number;
+  eleves: Eleve[];
+};
+
+type Vue = "general" | "classes" | "cours" | "eleves" | "cartes";
+
+const VUES: { id: Vue; label: string }[] = [
+  { id: "general", label: "Vue générale" },
+  { id: "classes", label: "Classes" },
+  { id: "cours", label: "Cours" },
+  { id: "eleves", label: "Élèves" },
+  { id: "cartes", label: "Cartes QR" },
+];
 
 const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
@@ -40,504 +55,381 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeZone: TIME_ZONE,
 });
 
-const dateFormatter = new Intl.DateTimeFormat("en", {
+const dateLabelFormatter = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
   year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
   timeZone: TIME_ZONE,
 });
 
-const dayFormatter = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-  timeZone: TIME_ZONE,
-});
+function todayConakry(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
-type StudentSummary = {
-  student: Student;
-  scans: number;
-  coursesSeen: number;
-  lastScanAt: string | null;
+function nowMinutesConakry(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return get("hour") * 60 + get("minute");
+}
+
+function minutesOf(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/** Statut métier d'un élève pour un cours, à l'heure Conakry actuelle. */
+type Statut = "present" | "non-pointe" | "absent";
+function statutEleve(eleve: Eleve, cours: Cours, date: string): Statut {
+  const present = eleve.presences.some((p) => p.course_id === cours.id);
+  if (present) return "present";
+  const termine =
+    date < todayConakry() ||
+    (date === todayConakry() && minutesOf(cours.heure_fin) <= nowMinutesConakry());
+  return termine ? "absent" : "non-pointe";
+}
+
+const STATUT_LABEL: Record<Statut, string> = {
+  present: "PRÉSENT",
+  "non-pointe": "NON POINTÉ",
+  absent: "ABSENT",
 };
 
-function formatTime(iso: string): string {
-  return timeFormatter.format(new Date(iso));
+function statutClass(statut: Statut, s: Record<string, string>): string {
+  const key = statut === "non-pointe" ? "nonPointe" : statut;
+  return `${styles.pastille} ${s[key] ?? ""}`;
 }
 
-function formatDay(iso: string): string {
-  return dayFormatter.format(new Date(iso));
-}
+export default function DashboardClient() {
+  const [vue, setVue] = useState<Vue>("general");
+  const [date, setDate] = useState(todayConakry());
+  const [classe, setClasse] = useState<string>("");
+  const [cours, setCours] = useState<string>("");
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [classeNom, setClasseNom] = useState<string>("");
 
-function isOnDemoDate(iso: string): boolean {
-  const parts = dateFormatter.formatToParts(new Date(iso));
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-  return (
-    year !== undefined &&
-    month !== undefined &&
-    day !== undefined &&
-    `${year}-${month}-${day}` === DEMO_DATE
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams({ date });
+    if (classe) params.set("classe", classe);
+    if (cours) params.set("cours", cours);
+    try {
+      const res = await fetch(`/api/dashboard?${params.toString()}`, { credentials: "same-origin" });
+      if (res.status === 401) {
+        window.location.href = "/login?next=%2Fdashboard";
+        return;
+      }
+      if (!res.ok) {
+        setError(res.status === 400 ? "Date invalide." : "Erreur serveur — réessaie.");
+        setData(null);
+      } else {
+        const body = (await res.json()) as DashboardData;
+        setData(body);
+        setClasseNom(
+          classe ? (body.classes.find((c) => c.id === classe)?.nom ?? "") : ""
+        );
+      }
+    } catch {
+      setError("Réseau indisponible.");
+    } finally {
+      setLoading(false);
+    }
+  }, [date, classe, cours]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const exportUrl = useMemo(() => {
+    const params = new URLSearchParams({ date });
+    if (classe) params.set("classe", classe);
+    return `/api/dashboard/export?${params.toString()}`;
+  }, [date, classe]);
+
+  const classeLabel = (id: string) => data?.classes.find((c) => c.id === id)?.nom ?? "—";
+  const eleveParClasse = useMemo(
+    () => (data?.eleves ?? []).filter((e) => !classe || e.classe_id === classe),
+    [data, classe]
   );
-}
 
-function className(classeId: string): string {
-  return mockClasses.find((classe) => classe.id === classeId)?.nom ?? "Classe inconnue";
-}
-
-function courseName(courseId: string): string {
-  return mockCourses.find((course) => course.id === courseId)?.nom ?? "Cours inconnu";
-}
-
-function percent(part: number, total: number): number {
-  return total === 0 ? 0 : Math.round((part / total) * 100);
-}
-
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className={styles.kpi}>
-      <p className={styles.kpiLabel}>{label}</p>
-      <p className={styles.kpiValue}>{value}</p>
-      {hint ? <p className={styles.kpiHint}>{hint}</p> : null}
+    <div className={styles.root}>
+      <header className={styles.header}>
+        <div>
+          <div className={styles.brand}>VerifyCheck</div>
+          <p className={styles.subtitle}>
+            {dateLabelFormatter.format(new Date(`${date}T12:00:00Z`))} · {TIME_ZONE}
+          </p>
+        </div>
+        <div className={styles.filters}>
+          <label>
+            Date
+            <input type="date" value={date} max={todayConakry()} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <label>
+            Classe
+            <select value={classe} onChange={(e) => { setClasse(e.target.value); setCours(""); }}>
+              <option value="">Toutes</option>
+              {(data?.classes ?? []).map((c) => (
+                <option key={c.id} value={c.id}>{c.nom}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Cours
+            <select value={cours} onChange={(e) => setCours(e.target.value)}>
+              <option value="">Tous</option>
+              {(data?.cours_prevus ?? [])
+                .filter((c) => !classe || c.classe_id === classe)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom} {timeFormatter.format(new Date(`2000-01-01T${c.heure_debut}Z`))}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <nav className={styles.nav} aria-label="Sections">
+        {VUES.map((v) => (
+          <button
+            key={v.id}
+            className={vue === v.id ? styles.navOn : ""}
+            onClick={() => setVue(v.id)}
+            aria-current={vue === v.id ? "page" : undefined}
+          >
+            {v.label}
+          </button>
+        ))}
+      </nav>
+
+      {error && <p className={styles.error} role="alert">{error}</p>}
+      {loading && <p className={styles.loading}>Chargement des données réelles…</p>}
+
+      {data && !loading && (
+        <main className={styles.main}>
+          {/* ---------------------------------------------- VUE GÉNÉRALE */}
+          {vue === "general" && (
+            <>
+              <section className={styles.resume}>
+                <div>
+                  <span className={styles.kpi}>{data.cours_prevus.length}</span>
+                  <span className={styles.kpiLabel}>cours prévus</span>
+                </div>
+                <div>
+                  <span className={styles.kpi}>{data.effectif}</span>
+                  <span className={styles.kpiLabel}>élèves concernés</span>
+                </div>
+                <div>
+                  <span className={styles.kpi}>{data.presents}</span>
+                  <span className={styles.kpiLabel}>présents (≥ 1 scan)</span>
+                </div>
+                <div>
+                  <span className={styles.kpi}>{data.scans}</span>
+                  <span className={styles.kpiLabel}>scans serveur</span>
+                </div>
+              </section>
+
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Classe</th><th>Cours</th><th>Salle</th><th>Heure</th>
+                    <th>Présents</th><th>Absents (cours terminé)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.cours_prevus.map((c) => {
+                    const eleves = eleveParClasse.filter((e) => e.classe_id === c.classe_id);
+                    const statuts = eleves.map((e) => statutEleve(e, c, date));
+                    return (
+                      <tr key={c.id}>
+                        <td>{classeLabel(c.classe_id)}</td>
+                        <td>{c.nom}</td>
+                        <td>{c.salle ?? "—"}</td>
+                        <td className={styles.num}>
+                          {c.heure_debut.slice(0, 5)}–{c.heure_fin.slice(0, 5)}
+                        </td>
+                        <td className={styles.num}>
+                          {statuts.filter((s) => s === "present").length}/{eleves.length}
+                        </td>
+                        <td className={styles.num}>
+                          {statuts.filter((s) => s === "absent").length}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {data.cours_prevus.length === 0 && (
+                    <tr><td colSpan={6} className={styles.empty}>Aucun cours prévu ce jour.</td></tr>
+                  )}
+                </tbody>
+              </table>
+
+              <p className={styles.actionsRow}>
+                <a className={styles.button} href={exportUrl}>Exporter les absences (CSV)</a>
+              </p>
+            </>
+          )}
+
+          {/* ------------------------------------------------ CLASSES */}
+          {vue === "classes" && (
+            <table className={styles.table}>
+              <thead>
+                <tr><th>Classe</th><th>Élèves</th><th>Présents aujourd&apos;hui</th><th>Cours prévus</th></tr>
+              </thead>
+              <tbody>
+                {data.classes.map((c) => {
+                  const eleves = data.eleves.filter((e) => e.classe_id === c.id);
+                  const coursClasse = data.cours_prevus.filter((k) => k.classe_id === c.id);
+                  const presents = eleves.filter((e) =>
+                    coursClasse.some((k) => e.presences.some((p) => p.course_id === k.id))
+                  ).length;
+                  return (
+                    <tr key={c.id}>
+                      <td>{c.nom}</td>
+                      <td className={styles.num}>{eleves.length}</td>
+                      <td className={styles.num}>{presents}</td>
+                      <td className={styles.num}>{coursClasse.length}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {/* -------------------------------------------------- COURS */}
+          {vue === "cours" && (
+            <table className={styles.table}>
+              <thead>
+                <tr><th>Cours</th><th>Classe</th><th>Heure</th><th>Salle</th><th>Présents</th></tr>
+              </thead>
+              <tbody>
+                {data.cours_prevus.map((c) => {
+                  const eleves = data.eleves.filter(
+                    (e) => (!classe || e.classe_id === classe) && e.classe_id === c.classe_id
+                  );
+                  const presents = eleves.filter((e) => e.presences.some((p) => p.course_id === c.id));
+                  return (
+                    <tr key={c.id}>
+                      <td>{c.nom}</td>
+                      <td>{classeLabel(c.classe_id)}</td>
+                      <td className={styles.num}>
+                        {c.heure_debut.slice(0, 5)}–{c.heure_fin.slice(0, 5)}
+                      </td>
+                      <td>{c.salle ?? "—"}</td>
+                      <td className={styles.num}>{presents.length}/{eleves.length}</td>
+                    </tr>
+                  );
+                })}
+                {data.cours_prevus.length === 0 && (
+                  <tr><td colSpan={5} className={styles.empty}>Aucun cours prévu ce jour.</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {/* -------------------------------------------------- ÉLÈVES */}
+          {vue === "eleves" && (
+            <table className={styles.table}>
+              <thead>
+                <tr><th>Élève</th><th>Classe</th><th>Code carte</th><th>Scans</th><th>Détail des cours</th></tr>
+              </thead>
+              <tbody>
+                {eleveParClasse.map((e) => (
+                  <tr key={e.id}>
+                    <td>{e.nom}</td>
+                    <td>{classeLabel(e.classe_id)}</td>
+                    <td className={styles.code}>{e.code_qr}</td>
+                    <td className={styles.num}>{e.scans}</td>
+                    <td>
+                      {data.cours_prevus
+                        .filter((c) => c.classe_id === e.classe_id)
+                        .map((c) => {
+                          const statut = statutEleve(e, c, date);
+                          return (
+                            <span key={c.id} className={statutClass(statut, styles as Record<string, string>)}>
+                              {c.nom} : {STATUT_LABEL[statut]}
+                            </span>
+                          );
+                        })}
+                    </td>
+                  </tr>
+                ))}
+                {eleveParClasse.length === 0 && (
+                  <tr><td colSpan={5} className={styles.empty}>Aucun élève pour ce filtre.</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {/* -------------------------------------------------- CARTES */}
+          {vue === "cartes" && (
+            <CartesQR eleves={eleveParClasse} classeLabel={classeLabel} classeNom={classeNom} />
+          )}
+        </main>
+      )}
     </div>
   );
 }
 
-function StatusBadge({ present }: { present: boolean }) {
+/* ------------------------------------------------------------ Cartes QR */
+
+function CartesQR({
+  eleves,
+  classeLabel,
+  classeNom,
+}: {
+  eleves: Eleve[];
+  classeLabel: (id: string) => string;
+  classeNom: string;
+}) {
+  // QR générés côté serveur (`GET /api/cartes/qr`, lib `qrcode` hors bundle client).
+  // Même origine : les cookies de session admin accompagnent les images.
   return (
-    <span className={present ? styles.present : styles.absent}>
-      {present ? "Présent" : "Absent"}
-    </span>
-  );
-}
-
-export default function DashboardClient() {
-  const [view, setView] = useState<View>("classe");
-  const [classId, setClassId] = useState(mockClasses[0]?.id ?? "");
-  const [courseId, setCourseId] = useState(mockCourses[0]?.id ?? "");
-  const [studentId, setStudentId] = useState(mockStudents[0]?.id ?? "");
-
-  const classData = useMemo(() => {
-    const students = getStudentsByClasse(classId);
-    const courses = getCoursesByClasse(classId).filter(
-      (course) => course.jour_semaine === DEMO_WEEKDAY
-    );
-    const courseIds = new Set(courses.map((course) => course.id));
-    const entriesByStudent = new Map<string, { courseId: string; scannedAt: string }[]>();
-
-    for (const entry of mockAttendance) {
-      if (!courseIds.has(entry.course_id) || !isOnDemoDate(entry.scanned_at)) continue;
-      const list = entriesByStudent.get(entry.student_id) ?? [];
-      list.push({ courseId: entry.course_id, scannedAt: entry.scanned_at });
-      entriesByStudent.set(entry.student_id, list);
-    }
-
-    const rows: StudentSummary[] = students.map((student) => {
-      const entries = (entriesByStudent.get(student.id) ?? [])
-        .slice()
-        .sort((a, b) => a.scannedAt.localeCompare(b.scannedAt));
-      return {
-        student,
-        scans: entries.length,
-        coursesSeen: new Set(entries.map((entry) => entry.courseId)).size,
-        lastScanAt: entries.length > 0 ? entries[entries.length - 1].scannedAt : null,
-      };
-    });
-
-    const present = rows.filter((row) => row.scans > 0).length;
-
-    return {
-      classeName: className(classId),
-      students,
-      courses,
-      rows,
-      present,
-      absent: students.length - present,
-      rate: percent(present, students.length),
-    };
-  }, [classId]);
-
-  const selectedCourse: Course =
-    mockCourses.find((course) => course.id === courseId) ?? mockCourses[0];
-
-  const courseData = useMemo(() => {
-    const students = getStudentsByClasse(selectedCourse.classe_id);
-    const hasScheduledSession = selectedCourse.jour_semaine === DEMO_WEEKDAY;
-    const entries = hasScheduledSession
-      ? getAttendanceByCourse(selectedCourse.id).filter((entry) => isOnDemoDate(entry.scanned_at))
-      : [];
-    const entryByStudent = new Map(entries.map((entry) => [entry.student_id, entry] as const));
-
-    const rows = students.map((student) => {
-      const entry = entryByStudent.get(student.id);
-      return { student, scannedAt: entry?.scanned_at ?? null };
-    });
-
-    const present = rows.filter((row) => row.scannedAt !== null).length;
-
-    return {
-      hasScheduledSession,
-      students,
-      rows,
-      present,
-      absent: students.length - present,
-      rate: percent(present, students.length),
-    };
-  }, [selectedCourse]);
-
-  const selectedStudent =
-    mockStudents.find((student) => student.id === studentId) ?? mockStudents[0];
-
-  const studentData = useMemo(() => {
-    const courses = getCoursesByClasse(selectedStudent.classe_id).filter(
-      (course) => course.jour_semaine === DEMO_WEEKDAY
-    );
-    const demoDateEntries = mockAttendance.filter(
-      (entry) => entry.student_id === selectedStudent.id && isOnDemoDate(entry.scanned_at)
-    );
-    const history = mockAttendance
-      .filter((entry) => entry.student_id === selectedStudent.id)
-      .map((entry) => ({ entry, course: courseName(entry.course_id) }))
-      .sort((a, b) => b.entry.scanned_at.localeCompare(a.entry.scanned_at));
-    const seen = new Set(demoDateEntries.map((entry) => entry.course_id));
-    const missed = courses.filter((course) => !seen.has(course.id));
-
-    return {
-      courses,
-      scans: demoDateEntries.length,
-      history,
-      missed,
-      rate: percent(seen.size, courses.length),
-    };
-  }, [selectedStudent]);
-
-  return (
-    <main className={styles.page}>
-      <div className={styles.shell}>
-        <header className={styles.header}>
-          <div className={styles.brand}>
-            <span className={styles.mark} aria-hidden="true">
-              VC
-            </span>
-            <div>
-              <p className={styles.eyebrow}>VerifyCheck · Direction</p>
-              <h1 className={styles.title}>Tableau de bord</h1>
+    <section>
+      <p className={styles.actionsRow}>
+        <button className={styles.button} onClick={() => window.print()}>
+          Imprimer la planche ({eleves.length} cartes)
+        </button>
+      </p>
+      <h2 className={styles.printTitle}>{classeNom ? `Cartes — ${classeNom}` : "Cartes — toutes les classes"}</h2>
+      <div className={styles.cards}>
+        {eleves.map((e) => (
+          <article key={e.id} className={styles.card}>
+            <div className={styles.cardHead}>
+              <span className={styles.cardBrand}>VerifyCheck</span>
+              <span className={styles.cardClasse}>{classeLabel(e.classe_id)}</span>
             </div>
-          </div>
-          <span className={styles.demoBadge}>Maquette · données fictives</span>
-        </header>
-
-        <section className={styles.toolbar} aria-label="Filtres du tableau de bord">
-          <div className={styles.field}>
-            <label htmlFor="demo-date">Date</label>
-            <select id="demo-date" defaultValue={DEMO_DATE} disabled>
-              <option value={DEMO_DATE}>{DEMO_DATE_LABEL}</option>
-            </select>
-          </div>
-          <p className={styles.toolbarNote}>
-            Filtres date et export activés au Sprint 3.
-          </p>
-          <button type="button" className={styles.exportButton} disabled>
-            Exporter CSV
-          </button>
-        </section>
-
-        <div className={styles.tabs} role="group" aria-label="Type de vue">
-          {VIEWS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              id={`tab-${item.id}`}
-              aria-pressed={view === item.id}
-              className={view === item.id ? styles.tabActive : styles.tab}
-              onClick={() => setView(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        <section
-          id="dashboard-panel"
-          aria-labelledby={`tab-${view}`}
-          className={styles.panel}
-        >
-          {view === "classe" ? (
-            <>
-              <div className={styles.viewHead}>
-                <div className={styles.field}>
-                  <label htmlFor="class-select">Classe</label>
-                  <select
-                    id="class-select"
-                    value={classId}
-                    onChange={(event) => setClassId(event.target.value)}
-                  >
-                    {mockClasses.map((classe) => (
-                      <option key={classe.id} value={classe.id}>
-                        {classe.nom}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className={styles.context}>
-                  {classData.courses.length} cours au planning pour le {DEMO_DATE_LABEL}
-                </p>
+            <div className={styles.cardBody}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/cartes/qr?code=${encodeURIComponent(e.code_qr)}`}
+                alt={`QR de ${e.nom}`}
+                width={110}
+                height={110}
+              />
+              <div>
+                <div className={styles.cardNom}>{e.nom}</div>
+                <div className={styles.cardCode}>{e.code_qr}</div>
               </div>
-
-                {classData.courses.length === 0 ? (
-                  <p className={styles.empty}>
-                    Aucun cours prévu pour cette classe le {DEMO_DATE_LABEL}.
-                  </p>
-                ) : (
-                  <>
-                    <div className={styles.kpis}>
-                      <Kpi label="Effectif" value={String(classData.students.length)} />
-                      <Kpi label="Ont scanné" value={String(classData.present)} />
-                      <Kpi label="Absents" value={String(classData.absent)} />
-                      <Kpi
-                        label="Taux de présence"
-                        value={`${classData.rate} %`}
-                        hint="élèves avec ≥ 1 scan"
-                      />
-                    </div>
-
-                    <div className={styles.tableWrap}>
-                      <table className={styles.table}>
-                        <caption className={styles.srOnly}>
-                          Présence des élèves de {classData.classeName}
-                        </caption>
-                        <thead>
-                          <tr>
-                            <th scope="col">Élève</th>
-                            <th scope="col">Scans</th>
-                            <th scope="col">Cours suivis</th>
-                            <th scope="col">Dernier scan</th>
-                            <th scope="col">Statut</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {classData.rows.map((row) => (
-                            <tr key={row.student.id}>
-                              <td>{row.student.nom}</td>
-                              <td>{row.scans}</td>
-                              <td>
-                                {row.coursesSeen} / {classData.courses.length}
-                              </td>
-                              <td>{row.lastScanAt ? formatTime(row.lastScanAt) : "—"}</td>
-                              <td>
-                                <StatusBadge present={row.scans > 0} />
-                              </td>
-                            </tr>
-                          ))}
-                          {classData.rows.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className={styles.empty}>
-                                Aucun élève dans cette classe.
-                              </td>
-                            </tr>
-                          ) : null}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className={styles.footnote}>
-                      Un élève est « présent » s&apos;il a au moins un scan sur la journée de démo.
-                    </p>
-                  </>
-                )}
-            </>
-          ) : null}
-
-          {view === "cours" ? (
-            <>
-              <div className={styles.viewHead}>
-                <div className={styles.field}>
-                  <label htmlFor="course-select">Cours</label>
-                  <select
-                    id="course-select"
-                    value={selectedCourse.id}
-                    onChange={(event) => setCourseId(event.target.value)}
-                  >
-                    {mockCourses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.nom} — {className(course.classe_id)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className={styles.context}>
-                  {className(selectedCourse.classe_id)} · {formatTimeSlot(selectedCourse)} ·{" "}
-                  {DEMO_DATE_LABEL}
-                </p>
-              </div>
-
-              {courseData.hasScheduledSession ? (
-                <>
-                  <div className={styles.kpis}>
-                    <Kpi label="Effectif" value={String(courseData.students.length)} />
-                    <Kpi label="Présents" value={String(courseData.present)} />
-                    <Kpi label="Absents" value={String(courseData.absent)} />
-                    <Kpi label="Taux de présence" value={`${courseData.rate} %`} />
-                  </div>
-
-                  <div className={styles.tableWrap}>
-                    <table className={styles.table}>
-                      <caption className={styles.srOnly}>
-                        Présence des élèves au cours de {selectedCourse.nom}
-                      </caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Élève</th>
-                          <th scope="col">Heure du scan</th>
-                          <th scope="col">Statut</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {courseData.rows.map((row) => (
-                          <tr key={row.student.id}>
-                            <td>{row.student.nom}</td>
-                            <td>{row.scannedAt ? formatTime(row.scannedAt) : "—"}</td>
-                            <td>
-                              <StatusBadge present={row.scannedAt !== null} />
-                            </td>
-                          </tr>
-                        ))}
-                        {courseData.rows.length === 0 ? (
-                          <tr>
-                            <td colSpan={3} className={styles.empty}>
-                              Aucun élève dans la classe de ce cours.
-                            </td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className={styles.footnote}>
-                    Règle cible : un seul scan compté par élève, par cours et par jour.
-                  </p>
-                </>
-              ) : (
-                <p className={styles.empty}>
-                  Aucune séance de ce cours prévue le {DEMO_DATE_LABEL}.
-                </p>
-              )}
-            </>
-          ) : null}
-
-          {view === "eleve" ? (
-            <>
-              <div className={styles.viewHead}>
-                <div className={styles.field}>
-                  <label htmlFor="student-select">Élève</label>
-                  <select
-                    id="student-select"
-                    value={selectedStudent.id}
-                    onChange={(event) => setStudentId(event.target.value)}
-                  >
-                    {mockStudents.map((student) => (
-                      <option key={student.id} value={student.id}>
-                        {student.nom} — {className(student.classe_id)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className={styles.context}>Carte QR : {selectedStudent.code_qr}</p>
-              </div>
-
-              {studentData.courses.length === 0 ? (
-                <p className={styles.empty}>
-                  Aucun cours prévu pour cette classe le {DEMO_DATE_LABEL}.
-                </p>
-              ) : (
-                <div className={styles.kpis}>
-                  <Kpi label="Scans enregistrés" value={String(studentData.scans)} />
-                  <Kpi
-                    label="Cours suivis"
-                    value={`${studentData.courses.length - studentData.missed.length} / ${studentData.courses.length}`}
-                  />
-                  <Kpi label="Cours manqués" value={String(studentData.missed.length)} />
-                  <Kpi
-                    label="Assiduité"
-                    value={`${studentData.rate} %`}
-                    hint="sur la journée de démo"
-                  />
-                </div>
-              )}
-
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <caption className={styles.srOnly}>
-                    Historique de présence de {selectedStudent.nom}
-                  </caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Jour</th>
-                      <th scope="col">Cours</th>
-                      <th scope="col">Heure</th>
-                      <th scope="col">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {studentData.history.map((item) => (
-                      <tr key={item.entry.id}>
-                        <td>{formatDay(item.entry.scanned_at)}</td>
-                        <td>{item.course}</td>
-                        <td>{formatTime(item.entry.scanned_at)}</td>
-                        <td>
-                          <StatusBadge present />
-                        </td>
-                      </tr>
-                    ))}
-                    {studentData.history.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className={styles.empty}>
-                          Aucun scan enregistré pour cet élève.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-
-              {studentData.courses.length > 0 ? (
-                studentData.missed.length > 0 ? (
-                  <div className={styles.missed}>
-                    <p className={styles.missedLabel}>Cours sans scan</p>
-                    <ul className={styles.chips}>
-                      {studentData.missed.map((course) => (
-                        <li key={course.id} className={styles.chip}>
-                          {course.nom}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className={styles.footnote}>Aucun cours manqué sur la journée de démo.</p>
-                )
-              ) : null}
-            </>
-          ) : null}
-        </section>
-
-        <footer className={styles.footer}>
-          <span>Maquette Sprint 0 · dashboard direction</span>
-          <span>Aucun appel réseau · données fictives</span>
-        </footer>
+            </div>
+          </article>
+        ))}
+        {eleves.length === 0 && <p className={styles.empty}>Aucun élève pour ce filtre.</p>}
       </div>
-    </main>
+    </section>
   );
-}
-
-const JOURS = [
-  "dimanche",
-  "lundi",
-  "mardi",
-  "mercredi",
-  "jeudi",
-  "vendredi",
-  "samedi",
-];
-
-function formatTimeSlot(course: Course): string {
-  return `${JOURS[course.jour_semaine]} ${course.heure_debut}–${course.heure_fin}`;
 }

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServerSupabase(auth.session?.access_token ?? accessToken);
   const [classesRes, coursesRes, studentsRes, attendanceRes] = await Promise.all([
     supabase.from("classes").select("id, nom"),
-    supabase.from("courses").select("id, nom, classe_id, jour_semaine"),
+    supabase.from("courses").select("id, nom, classe_id, jour_semaine, heure_debut, heure_fin"),
     supabase.from("students").select("id, nom, classe_id").order("nom"),
     supabase
       .from("attendance")
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       students: (studentsRes.data ?? []) as never,
       attendance: (attendanceRes.data ?? []) as never,
     },
-    { date, weekday: weekdayOfIso(date), classe: classeFilter }
+    { date, weekday: weekdayOfIso(date), classe: classeFilter, now: schoolInstant() }
   );
 
   const response = new NextResponse(csv, {
