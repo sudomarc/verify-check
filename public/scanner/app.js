@@ -6,7 +6,9 @@
   const esc = (value) =>
     String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  const ICONS = { idle: "…", success: "✓", duplicate: "!", invalid: "✕", "no-course": "✕", queued: "↻" };
+  const ICONS = { idle: "…", success: "✓", duplicate: "!", invalid: "✕", "no-course": "✕", error: "⚠", queued: "↻" };
+  // États qui doivent interrompre le lecteur d'écran (échecs), pas seulement l'informer.
+  const ALERT_STATES = { invalid: true, "no-course": true, error: true };
   const DEDUPE_MS = 2500; // même carte re-décodée plusieurs fois par seconde
 
   const el = {
@@ -24,8 +26,10 @@
     overlayTitle: $("vfTitle"),
     overlayText: $("vfText"),
     overlayBtn: $("vfAction"),
+    overlayBtn2: $("vfAction2"),
     torchBtn: $("torchBtn"),
     switchCamBtn: $("switchCamBtn"),
+    feedback: $("feedback"),
     fbIcon: $("fbIcon"),
     fbTitle: $("fbTitle"),
     fbSub: $("fbSub"),
@@ -37,18 +41,20 @@
     tabManual: $("tabManual"),
     manualForm: $("manualForm"),
     manualInput: $("manualInput"),
+    manualError: $("manualError"),
     manualCodes: $("manualCodes"),
     settings: $("settings"),
     setSound: $("setSound"),
     setVibrate: $("setVibrate"),
     setCourse: $("setCourse"),
+    setFailure: $("setFailure"),
     resetData: $("resetData"),
     closeSettings: $("closeSettings"),
     flash: $("flash"),
     toast: $("toast"),
   };
 
-  const state = { tab: "scan", lastCode: null, lastAt: 0, deviceId: null, cameras: [], deferredInstall: null };
+  const state = { tab: "scan", lastCode: null, lastAt: 0, deviceId: null, cameras: [], deferredInstall: null, cameraError: null, busy: false };
   let toastTimer = null;
 
   // ---------------------------------------------------------------- affichage
@@ -71,6 +77,9 @@
     el.fbTitle.textContent = title;
     el.fbSub.textContent = sub;
     el.fbTime.textContent = time || "";
+    const alert = Boolean(ALERT_STATES[kind]);
+    el.feedback.setAttribute("role", alert ? "alert" : "status");
+    el.feedback.setAttribute("aria-live", alert ? "assertive" : "polite");
   }
 
   function flash(kind) {
@@ -79,13 +88,61 @@
     el.flash.classList.add("go");
   }
 
-  function setViewfinderBlocked(blocked, title, text, actionLabel, action) {
+  function setViewfinderBlocked(blocked, options) {
     el.viewfinder.classList.toggle("is-blocked", blocked);
     if (!blocked) return;
-    el.overlayTitle.textContent = title;
-    el.overlayText.textContent = text;
-    el.overlayBtn.textContent = actionLabel;
-    el.overlayBtn.onclick = action;
+    const o = options || {};
+    el.overlayTitle.textContent = o.title || "Indisponible";
+    el.overlayText.textContent = o.text || "";
+    el.overlayBtn.textContent = o.actionLabel || "Réessayer";
+    el.overlayBtn.onclick = o.action || null;
+    if (o.secondaryLabel) {
+      el.overlayBtn2.hidden = false;
+      el.overlayBtn2.textContent = o.secondaryLabel;
+      el.overlayBtn2.onclick = o.secondaryAction || null;
+    } else {
+      el.overlayBtn2.hidden = true;
+      el.overlayBtn2.onclick = null;
+    }
+  }
+
+  // Message d'erreur en ligne sous le champ de saisie manuelle.
+  function showManualError(message) {
+    el.manualError.textContent = message;
+    el.manualError.hidden = false;
+    el.manualInput.setAttribute("aria-invalid", "true");
+  }
+  function clearManualError() {
+    el.manualError.hidden = true;
+    el.manualError.textContent = "";
+    el.manualInput.removeAttribute("aria-invalid");
+  }
+
+  // Traduit l'erreur caméra en message actionnable (permission, matériel, contexte…).
+  function describeCameraError(err) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return {
+        title: "Contexte non sécurisé",
+        text: "La caméra exige HTTPS (ou localhost). Ouvre le scanner via une URL sécurisée.",
+      };
+    }
+    const name = (err && err.name) || "";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
+      return { title: "Caméra refusée", text: "Autorise l'accès à la caméra dans le navigateur, puis réessaie." };
+    }
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return { title: "Aucune caméra", text: "Aucun appareil photo détecté. Utilise la saisie manuelle." };
+    }
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return { title: "Caméra occupée", text: "Une autre application utilise la caméra. Ferme-la, puis réessaie." };
+    }
+    if (name === "OverconstrainedError") {
+      return { title: "Caméra incompatible", text: "L'appareil ne fournit pas le flux demandé. Essaie une autre caméra." };
+    }
+    if (err && /Librairie QR indisponible/.test(err.message || "")) {
+      return { title: "Scanner indisponible", text: "La librairie de décodage n'a pas pu être chargée. Recharge la page." };
+    }
+    return { title: "Caméra indisponible", text: "Autorise la caméra, ou passe à la saisie manuelle." };
   }
 
   function renderNetwork() {
@@ -167,13 +224,12 @@
     if (!course) {
       stopCamera();
       setFeedback("no-course", "Aucun cours en cours", "Aucune session ouverte pour le moment.", "");
-      setViewfinderBlocked(
-        true,
-        "Aucun cours en cours",
-        "Le scan est désactivé. Demande à la direction d'ouvrir une session.",
-        "Ouvrir les réglages",
-        openSettings
-      );
+      setViewfinderBlocked(true, {
+        title: "Aucun cours en cours",
+        text: "Le scan est désactivé. Demande à la direction d'ouvrir une session.",
+        actionLabel: "Ouvrir les réglages",
+        action: openSettings,
+      });
       el.torchBtn.hidden = true;
       el.switchCamBtn.hidden = true;
       return;
@@ -185,13 +241,15 @@
     }
 
     if (state.cameraError) {
-      setViewfinderBlocked(
-        true,
-        "Caméra indisponible",
-        "Autorise la caméra, ou passe à la saisie manuelle.",
-        "Réessayer",
-        startCamera
-      );
+      const info = describeCameraError(state.cameraError);
+      setViewfinderBlocked(true, {
+        title: info.title,
+        text: info.text,
+        actionLabel: "Réessayer",
+        action: retryCamera,
+        secondaryLabel: "Saisie manuelle",
+        secondaryAction: () => setTab("manual"),
+      });
     } else {
       setViewfinderBlocked(false);
     }
@@ -207,6 +265,7 @@
     state.lastCode = code;
     state.lastAt = now;
 
+    if (state.busy) return; // une écriture est déjà en cours : on ignore le doublon
     const course = VC.api.getActiveCourse();
     if (!course) {
       return result("no-course", "Aucun cours en cours", "Aucune session ouverte pour le moment.");
@@ -214,18 +273,27 @@
 
     const student = VC.api.findStudentByCode(code);
     if (!student) {
+      showManualError("Carte inconnue : « " + code + " ». Vérifie le code ou réessaie le scan.");
       return result("invalid", "Carte non reconnue", "Aucun élève pour « " + code + " ».");
     }
 
-    const res = await VC.api.recordAttendance({ courseId: course.id, studentId: student.id, code });
-
-    if (res.status === "duplicate") {
-      return result("duplicate", "Déjà scanné", student.nom + " est déjà présent(e) pour ce cours.");
+    state.busy = true;
+    try {
+      const res = await VC.api.recordAttendance({ courseId: course.id, studentId: student.id, code });
+      if (res.status === "duplicate") {
+        return result("duplicate", "Déjà scanné", student.nom + " est déjà présent(e) pour ce cours.");
+      }
+      if (res.status === "queued") {
+        return result("queued", "Enregistré hors ligne", student.nom + " · sera synchronisé au retour du réseau.");
+      }
+      return result("success", "Présence validée", student.nom + " · " + student.code_qr);
+    } catch (err) {
+      // Échec du service : on le distingue clairement d'une carte invalide.
+      const reason = (err && err.message) || "Le service n'a pas répondu.";
+      return result("error", "Enregistrement impossible", student.nom + " · " + reason);
+    } finally {
+      state.busy = false;
     }
-    if (res.status === "queued") {
-      return result("queued", "Enregistré hors ligne", student.nom + " · sera synchronisé au retour du réseau.");
-    }
-    return result("success", "Présence validée", student.nom + " · " + student.code_qr);
   }
 
   function result(kind, title, sub) {
@@ -234,6 +302,8 @@
     flash(kind);
     VC.feedback.play(kind);
     if (kind === "success" || kind === "queued") el.manualInput.value = "";
+    if (kind !== "invalid") clearManualError();
+    if (kind === "error") toast("Enregistrement impossible — réessaie");
     renderAll();
   }
 
@@ -244,6 +314,7 @@
     try {
       await VC.qr.start({ deviceId: state.deviceId, onCode: handleScan });
       state.cameraOk = true;
+      state.cameraError = null;
       setViewfinderBlocked(false);
       state.cameras = await VC.qr.listCameras();
       el.switchCamBtn.hidden = state.cameras.length < 2;
@@ -294,6 +365,7 @@
     el.setSound.checked = VC.prefs.sound !== false;
     el.setVibrate.checked = VC.prefs.vibrate !== false;
     el.setCourse.value = VC.prefs.courseId || "";
+    el.setFailure.checked = VC.api.isFailureMode();
     el.settings.showModal();
   }
 
@@ -309,8 +381,13 @@
     });
     el.resetData.addEventListener("click", () => {
       VC.api.resetLocalData();
+      clearManualError();
       setFeedback("idle", "En attente d'un scan", "Approche la carte élève de la caméra.", "");
       toast("Données locales effacées");
+    });
+    el.setFailure.addEventListener("change", () => {
+      VC.api.setFailureMode(el.setFailure.checked);
+      toast(el.setFailure.checked ? "Panne d'enregistrement simulée" : "Panne simulée désactivée");
     });
     el.closeSettings.addEventListener("click", () => el.settings.close());
   }
@@ -331,9 +408,14 @@
   // ------------------------------------------------------------------ réseau
   async function onOnline() {
     renderNetwork();
-    const sent = await VC.api.flushQueue();
-    renderAll();
-    toast(sent ? sent + " présence(s) synchronisée(s)" : "Réseau rétabli");
+    try {
+      const sent = await VC.api.flushQueue();
+      renderAll();
+      toast(sent ? sent + " présence(s) synchronisée(s)" : "Réseau rétabli");
+    } catch {
+      renderAll();
+      toast("Synchronisation impossible — la file est conservée");
+    }
   }
 
   function onOffline() {
@@ -377,11 +459,16 @@
     el.tabManual.addEventListener("click", () => setTab("manual"));
     el.manualForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      clearManualError();
       handleScan(el.manualInput.value);
     });
+    el.manualInput.addEventListener("input", clearManualError);
     el.manualCodes.addEventListener("click", (event) => {
       const btn = event.target.closest("button[data-code]");
-      if (btn) handleScan(btn.dataset.code);
+      if (btn) {
+        clearManualError();
+        handleScan(btn.dataset.code);
+      }
     });
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -414,6 +501,7 @@
   window.VC.debug = {
     scan: (code) => handleScan(code),
     setOffline: (value) => VC.api.setForcedOffline(value),
+    setFailure: (value) => VC.api.setFailureMode(value),
     startCamera,
     retryCamera,
     state,
