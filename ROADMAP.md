@@ -18,7 +18,7 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
 ## Sprint 0 — Setup
 **Objectif : poser le socle avant toute fonctionnalité.**
 
-- [ ] Schéma de base de données (modèle + SQL initial dans `supabase/schema.sql`) :
+- [x] Schéma de base de données (modèle + SQL initial dans `supabase/schema.sql`) :
   - `classes` (id, nom)
   - `students` (id, code_qr unique, nom, classe_id)
   - `courses` (id, nom, classe_id, salle, jour_semaine, heure_debut, heure_fin)
@@ -34,7 +34,7 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
 **Objectif : tout ce qui doit exister avant qu'un scan ait un sens.**
 
 - [ ] Setup Supabase (projet cloud, clés, variables d'environnement Vercel)
-- [ ] Création des tables + RLS activé sur chaque table
+- [x] Création des tables + RLS activé sur chaque table
 - [ ] Auth admin (direction) : login, protection des routes admin
 - [ ] Génération carte ID + QR unique par élève (page de génération + rendu imprimable)
 - [ ] Données minimales de test (quelques élèves/classes factices)
