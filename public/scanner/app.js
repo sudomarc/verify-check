@@ -9,8 +9,12 @@
 
   const ICONS = {
     idle: "…", success: "✓", duplicate: "!", invalid: "✕", "no-course": "✕",
-    queued: "↻", ambiguous: "!", salle: "!", session: "🔒", "server-error": "✕",
-    "pending-dup": "↻", rejected: "✕",
+    queued: "↻", ambiguous: "!", salle: "!", session: "🔒", "server-error": "⚠",
+    "pending-dup": "↻", rejected: "✕", error: "⚠",
+  };
+  const ALERT_STATES = {
+    invalid: true, "no-course": true, ambiguous: true, salle: true,
+    session: true, "server-error": true, rejected: true, error: true,
   };
   const DEDUPE_MS = 2500; // même carte re-décodée plusieurs fois par seconde
 
@@ -48,6 +52,8 @@
     overlayTitle: $("vfTitle"),
     overlayText: $("vfText"),
     overlayBtn: $("vfAction"),
+    overlayBtn2: $("vfAction2"),
+    feedback: $("feedback"),
     torchBtn: $("torchBtn"),
     switchCamBtn: $("switchCamBtn"),
     fbIcon: $("fbIcon"),
@@ -61,6 +67,7 @@
     tabManual: $("tabManual"),
     manualForm: $("manualForm"),
     manualInput: $("manualInput"),
+    manualError: $("manualError"),
 
     // réglages
     settings: $("settings"),
@@ -76,7 +83,7 @@
 
   const state = {
     tab: "scan", lastCode: null, lastAt: 0, deviceId: null, cameras: [],
-    deferredInstall: null, cameraError: null, dashboard: null,
+    deferredInstall: null, cameraError: null, dashboard: null, busy: false,
   };
   let toastTimer = null;
 
@@ -97,6 +104,9 @@
     el.fbTitle.textContent = title;
     el.fbSub.textContent = sub;
     el.fbTime.textContent = time || "";
+    const alert = Boolean(ALERT_STATES[kind]);
+    el.feedback.setAttribute("role", alert ? "alert" : "status");
+    el.feedback.setAttribute("aria-live", alert ? "assertive" : "polite");
   }
 
   function flash(kind) {
@@ -105,13 +115,64 @@
     el.flash.classList.add("go");
   }
 
-  function setViewfinderBlocked(blocked, title, text, actionLabel, action) {
+  function setViewfinderBlocked(blocked, options) {
     el.viewfinder.classList.toggle("is-blocked", blocked);
-    if (!blocked) return;
-    el.overlayTitle.textContent = title;
-    el.overlayText.textContent = text;
-    el.overlayBtn.textContent = actionLabel;
-    el.overlayBtn.onclick = action;
+    if (!blocked) {
+      el.overlayBtn2.hidden = true;
+      el.overlayBtn2.onclick = null;
+      return;
+    }
+    const o = options || {};
+    el.overlayTitle.textContent = o.title || "Indisponible";
+    el.overlayText.textContent = o.text || "";
+    el.overlayBtn.textContent = o.actionLabel || "Réessayer";
+    el.overlayBtn.onclick = o.action || null;
+    if (o.secondaryLabel) {
+      el.overlayBtn2.hidden = false;
+      el.overlayBtn2.textContent = o.secondaryLabel;
+      el.overlayBtn2.onclick = o.secondaryAction || null;
+    } else {
+      el.overlayBtn2.hidden = true;
+      el.overlayBtn2.onclick = null;
+    }
+  }
+
+  function showManualError(message) {
+    el.manualError.textContent = message;
+    el.manualError.hidden = false;
+    el.manualInput.setAttribute("aria-invalid", "true");
+  }
+
+  function clearManualError() {
+    el.manualError.textContent = "";
+    el.manualError.hidden = true;
+    el.manualInput.removeAttribute("aria-invalid");
+  }
+
+  function describeCameraError(err) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return {
+        title: "Contexte non sécurisé",
+        text: "La caméra exige HTTPS (ou localhost). Ouvre le scanner via une URL sécurisée.",
+      };
+    }
+    const name = (err && err.name) || "";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
+      return { title: "Caméra refusée", text: "Autorise l'accès à la caméra dans le navigateur, puis réessaie." };
+    }
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return { title: "Aucune caméra", text: "Aucun appareil photo détecté. Utilise la saisie manuelle." };
+    }
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return { title: "Caméra occupée", text: "Une autre application utilise la caméra. Ferme-la, puis réessaie." };
+    }
+    if (name === "OverconstrainedError") {
+      return { title: "Caméra incompatible", text: "L'appareil ne fournit pas le flux demandé. Essaie une autre caméra." };
+    }
+    if (err && /Librairie QR indisponible/.test(err.message || "")) {
+      return { title: "Scanner indisponible", text: "La librairie de décodage n'a pas pu être chargée. Recharge la page." };
+    }
+    return { title: "Caméra indisponible", text: "Autorise la caméra, ou passe à la saisie manuelle." };
   }
 
   function showScreen(name) {
@@ -210,57 +271,69 @@
   // -------------------------------------------------------------------- scan
   async function handleScan(rawCode) {
     const code = String(rawCode || "").trim().toUpperCase();
-    if (!code) return;
+    if (!code || state.busy) return;
 
     const now = Date.now();
     if (code === state.lastCode && now - state.lastAt < DEDUPE_MS) return;
     state.lastCode = code;
     state.lastAt = now;
+    state.busy = true;
 
-    const res = await VC.api.recordScan(code);
-    const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    try {
+      const res = await VC.api.recordScan(code);
+      const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-    switch (res.status) {
-      case "recorded":
-        result("success", "Présence confirmée", (res.nom || code) + " · serveur", time);
-        break;
-      case "duplicate":
-        result("duplicate", "Déjà scanné", "Ce cours a déjà validé cette carte.", time);
-        break;
-      case "queued":
-        result("queued", "En attente de synchronisation",
-          "Réseau indisponible — le pointage reste EN ATTENTE jusqu'à confirmation du serveur.", time);
-        break;
-      case "pending-dup":
-        result("pending-dup", "Déjà en attente", "Ce pointage est déjà dans la file hors ligne.", time);
-        break;
-      case "invalid":
-        result("invalid", "Carte non reconnue", "Aucun élève pour « " + code + " » (réponse du serveur).", time);
-        break;
-      case "no-course":
-        result("no-course", "Aucun cours applicable", "Il est " + (res.heure || "?") + " à Conakry : aucun cours actif pour cette classe.", time);
-        break;
-      case "ambiguous":
-        result("ambiguous", "Contexte ambigu", "Plusieurs cours actifs pour cette classe. Reprends le contexte et précise le cours ou la salle.", time);
-        break;
-      case "salle":
-        result("salle", "Salle / cours incorrects", "Le cours choisi ne correspond pas à la salle ou n'est pas actif.", time);
-        break;
-      case "session":
-        result("session", "Session expirée", "Reconnexion nécessaire.", time);
-        showScreen("login");
-        break;
-      default:
-        result("server-error", "Erreur serveur", "Réponse inattendue — le pointage n'est PAS confirmé. Réessaie.", time);
+      switch (res.status) {
+        case "recorded":
+          result("success", "Présence confirmée", (res.nom || code) + " · serveur", time);
+          break;
+        case "duplicate":
+          result("duplicate", "Déjà scanné", "Ce cours a déjà validé cette carte.", time);
+          break;
+        case "queued":
+          result("queued", "En attente de synchronisation",
+            "Réseau indisponible — le pointage reste EN ATTENTE jusqu'à confirmation du serveur.", time);
+          break;
+        case "pending-dup":
+          result("pending-dup", "Déjà en attente", "Ce pointage est déjà dans la file hors ligne.", time);
+          break;
+        case "invalid":
+          showManualError("Carte inconnue : « " + code + " ». Vérifie le code ou réessaie le scan.");
+          result("invalid", "Carte non reconnue", "Aucun élève pour « " + code + " » (réponse du serveur).", time);
+          break;
+        case "no-course":
+          result("no-course", "Aucun cours applicable", "Il est " + (res.heure || "?") + " à Conakry : aucun cours actif pour cette classe.", time);
+          break;
+        case "ambiguous":
+          result("ambiguous", "Contexte ambigu", "Plusieurs cours actifs pour cette classe. Reprends le contexte et précise le cours ou la salle.", time);
+          break;
+        case "salle":
+          result("salle", "Salle / cours incorrects", "Le cours choisi ne correspond pas à la salle ou n'est pas actif.", time);
+          break;
+        case "session":
+          result("session", "Session expirée", "Reconnexion nécessaire.", time);
+          await stopCamera();
+          showScreen("login");
+          break;
+        default:
+          result("server-error", "Erreur serveur", "Réponse inattendue — le pointage n'est PAS confirmé. Réessaie.", time);
+      }
+    } catch (err) {
+      const reason = (err && err.message) || "Le service n'a pas répondu.";
+      result("server-error", "Enregistrement impossible", reason + " — le pointage n'est PAS confirmé.", "");
+    } finally {
+      state.busy = false;
     }
   }
 
   function result(kind, title, sub, time) {
     setFeedback(kind, title, sub, time);
     flash(kind);
-    VC.feedback.play(kind);
+    VC.feedback.play(["server-error", "rejected", "error"].includes(kind) ? "error" : kind);
     if (kind === "success" || kind === "queued") el.manualInput.value = "";
-    refreshDashboard().then(renderAll);
+    if (kind !== "invalid") clearManualError();
+    if (kind === "server-error") toast("Enregistrement impossible — réessaie");
+    Promise.resolve(refreshDashboard()).then(renderAll).catch(() => renderAll());
   }
 
   // ------------------------------------------------------------------ caméra
@@ -269,23 +342,22 @@
     if (VC.qr.isRunning()) return;
     try {
       await VC.qr.start({ deviceId: state.deviceId, onCode: handleScan });
+      state.cameraError = null;
       setViewfinderBlocked(false);
       state.cameras = await VC.qr.listCameras();
       el.switchCamBtn.hidden = state.cameras.length < 2;
       setTimeout(() => { el.torchBtn.hidden = !VC.qr.hasTorch(); }, 900);
     } catch (err) {
       state.cameraError = err || new Error("caméra indisponible");
-      const name = err && err.name;
-      const denied = name === "NotAllowedError";
-      setViewfinderBlocked(
-        true,
-        denied ? "Caméra refusée" : "Caméra indisponible",
-        denied
-          ? "Autorise la caméra dans les réglages du navigateur, ou passe à la saisie manuelle."
-          : "Vérifie l'appareil, ou passe à la saisie manuelle.",
-        "Réessayer",
-        retryCamera
-      );
+      const info = describeCameraError(state.cameraError);
+      setViewfinderBlocked(true, {
+        title: info.title,
+        text: info.text,
+        actionLabel: "Réessayer",
+        action: retryCamera,
+        secondaryLabel: "Saisie manuelle",
+        secondaryAction: () => setTab("manual"),
+      });
     }
   }
 
@@ -431,11 +503,15 @@
 
   // ------------------------------------------------------------------ réseau
   async function onOnline() {
-    renderNetwork();
-    const { synced } = await VC.api.flushQueue();
-    await refreshDashboard();
-    await renderAll();
-    toast(synced ? synced + " pointage(s) synchronisé(s)" : "Réseau rétabli");
+    try {
+      const { synced } = await VC.api.flushQueue();
+      await refreshDashboard();
+      await renderAll();
+      toast(synced ? synced + " pointage(s) synchronisé(s)" : "Réseau rétabli");
+    } catch {
+      await renderAll();
+      toast("Synchronisation impossible — la file est conservée");
+    }
   }
 
   function onOffline() {
@@ -481,8 +557,10 @@
     el.tabManual.addEventListener("click", () => setTab("manual"));
     el.manualForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      clearManualError();
       handleScan(el.manualInput.value);
     });
+    el.manualInput.addEventListener("input", clearManualError);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     document.addEventListener("visibilitychange", async () => {
@@ -490,10 +568,15 @@
       else {
         if (state.tab === "scan" && VC.api.selected) startCamera();
         // retour au premier plan : re-synchronise la file et le contexte
-        const { synced } = await VC.api.flushQueue();
-        if (synced) toast(synced + " pointage(s) synchronisé(s)");
-        await refreshDashboard();
-        await renderAll();
+        try {
+          const { synced } = await VC.api.flushQueue();
+          if (synced) toast(synced + " pointage(s) synchronisé(s)");
+          await refreshDashboard();
+          await renderAll();
+        } catch {
+          await renderAll();
+          toast("Synchronisation impossible — la file est conservée");
+        }
       }
     });
     document.addEventListener("pointerdown", () => VC.feedback.unlock(), { once: true });
