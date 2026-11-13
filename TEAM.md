@@ -10,33 +10,33 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 
 **Périmètre :** coordonner le travail des rôles, maintenir une vision fiable de l'état du dépôt, vérifier les preuves, suivre les dépendances, signaler les risques et préparer les arbitrages. Le Rôle 0 ne remplace aucun responsable d'implémentation et ne prend pas les décisions humaines à la place de Patrick.
 
-- [ ] Maintenir le suivi des tâches cohérent avec `main`, les PR fusionnées, la CI et les vérifications disponibles.
-- [ ] Identifier les blocages, dépendances et risques, puis les transmettre au rôle ou à la personne responsable.
-- [ ] Préparer des plans et prompts précis pour les agents d'implémentation, sans leur attribuer de décisions non approuvées.
-- [ ] Vérifier les changements proposés : périmètre, preuves, sécurité, tests et cohérence documentaire.
-- [ ] Préparer la revue de fin de MVP et le scénario de démonstration ; la validation finale appartient à Patrick.
+- [x] Maintenir le suivi des tâches cohérent avec `main`, les PR fusionnées, la CI et les vérifications disponibles. *(STATUS/ROADMAP/TEAM synchronisés à chaque PR fusionnée — #16, #17, #20)*
+- [x] Identifier les blocages, dépendances et risques, puis les transmettre au rôle ou à la personne responsable. *(blocage « compte admin Supabase » signalé à Patrick — seul point restant pour la vérification bout-en-bout)*
+- [x] Préparer des plans et prompts précis pour les agents d'implémentation, sans leur attribuer de décisions non approuvées.
+- [x] Vérifier les changements proposés : périmètre, preuves, sécurité, tests et cohérence documentaire. *(tests, typecheck, build, runtime 401, revue des diffs avant chaque PR)*
+- [ ] Préparer la revue de fin de MVP et le scénario de démonstration ; la validation finale appartient à Patrick. *(restant — après création du compte admin et saisie de données réelles)*
 
 ## Rôle 1 — Backend / DB (Patrick)
 
 **Périmètre :** Patrick est le responsable humain du backend/DB et le mainteneur du projet. Il pilote le schéma Supabase, l'API, la logique métier et la sécurité des données ; il valide les décisions d'architecture, de schéma, de RLS/Auth et de traitement des données élèves. L'assistant (Rôle 0) coordonne et vérifie, mais ne se substitue pas à son approbation.
 
 1. **Sprint 0 — Schéma**
-   - [ ] Définir et faire valider le modèle de données `classes`, `students`, `courses`, `attendance`.
-   - [ ] Corriger et vérifier le SQL initial (`supabase/schema.sql`), notamment l'anti-doublon par jour.
+   - [x] Définir et faire valider le modèle de données `classes`, `students`, `courses`, `attendance`. *(validé par Patrick, appliqué dans Supabase)*
+   - [x] Corriger et vérifier le SQL initial (`supabase/schema.sql`), notamment l'anti-doublon par jour. *(index unique testé en base : doublon rejeté 23505, lendemain accepté)*
 2. **Sprint 1 — Infrastructure**
-   - [ ] Créer/configurer le projet Supabase (compte humain requis).
-   - [ ] Configurer les variables d'environnement sans exposer de secrets.
-   - [ ] Créer les tables et vérifier les migrations dans Supabase.
-   - [ ] Configurer et tester des politiques RLS qui limitent réellement l'accès aux admins autorisés.
-   - [ ] Implémenter l'authentification admin et la protection des routes.
+   - [x] Créer/configurer le projet Supabase (compte humain requis). *(projet `hdfefhltqyxiqnuruhlp`, CLI liée)*
+   - [ ] Configurer les variables d'environnement sans exposer de secrets. *(locales + `.env.example` commités ; variables **production Vercel** à confirmer par Patrick)*
+   - [x] Créer les tables et vérifier les migrations dans Supabase.
+   - [x] Configurer et tester des politiques RLS qui limitent réellement l'accès aux admins autorisés. *(policies `app_metadata.role='admin'`, `anon` bloqué — testé en base)*
+   - [x] Implémenter l'authentification admin et la protection des routes. *(PR #16 : cycle access/refresh, révocation au logout ; `/api/**` → 401 sans session, `/dashboard` → 307 — vérifié en runtime)*
 3. **Sprint 2 — Logique de présence**
-   - [ ] Implémenter l'association scan → salle → cours actif.
-   - [ ] Enregistrer une présence avec horodatage serveur.
-   - [ ] Empêcher les doublons élève/cours/jour.
-   - [ ] Gérer les erreurs métier : double scan, QR invalide, aucun cours actif.
+   - [x] Implémenter l'association scan → salle → cours actif. *(PR #20 : désambiguïsation `cours_ambigu`/salle/cours explicite, plus jamais de choix arbitraire)*
+   - [x] Enregistrer une présence avec horodatage serveur. *(`scanned_at` défaut `now()`, horodatage base)*
+   - [x] Empêcher les doublons élève/cours/jour. *(index unique d'expression, jour local Conakry)*
+   - [x] Gérer les erreurs métier : double scan, QR invalide, aucun cours actif. *(`doublon`, `qr_invalide`, `pas_de_cours`, `salle_invalide`, `cours_pas_actif`)*
 4. **Sprint 3 — API dashboard**
-   - [ ] Fournir les données de présence par classe, cours et élève.
-   - [ ] Fournir les filtres et les données nécessaires à l'export des absences.
+   - [x] Fournir les données de présence par classe, cours et élève. *(`GET /api/dashboard`, branché sur le dashboard réel — PR #20)*
+   - [x] Fournir les filtres et les données nécessaires à l'export des absences. *(`GET /api/dashboard/export` — export honnête : pas d'absence avant la fin du cours)*
 
 **Dépendances :** les rôles 2 et 3 ne branchent pas leurs écrans sur le backend avant que le schéma, Supabase et les règles d'accès nécessaires soient prêts. Le rôle 2 attend aussi l'endpoint de scan avant d'implémenter l'écriture réelle des présences.
 
