@@ -1,14 +1,21 @@
-// VerifyCheck — contrôleur de l'écran scan.
-// Flux : caméra → décodage QR → lookup élève → présence (ou file hors-ligne) → feedback.
+// VerifyCheck — contrôleur de l'écran scan (données RÉELLES).
+// Flux : connexion → contexte (classe/cours actifs serveur) → caméra →
+// POST /api/scan → état métier affiché. Hors ligne : file IndexedDB « EN ATTENTE ».
 
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = (value) =>
     String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  const ICONS = { idle: "…", success: "✓", duplicate: "!", invalid: "✕", "no-course": "✕", error: "⚠", queued: "↻" };
-  // États qui doivent interrompre le lecteur d'écran (échecs), pas seulement l'informer.
-  const ALERT_STATES = { invalid: true, "no-course": true, error: true };
+  const ICONS = {
+    idle: "…", success: "✓", duplicate: "!", invalid: "✕", "no-course": "✕",
+    queued: "↻", ambiguous: "!", salle: "!", session: "🔒", "server-error": "⚠",
+    "pending-dup": "↻", rejected: "✕", error: "⚠",
+  };
+  const ALERT_STATES = {
+    invalid: true, "no-course": true, ambiguous: true, salle: true,
+    session: true, "server-error": true, rejected: true, error: true,
+  };
   const DEDUPE_MS = 2500; // même carte re-décodée plusieurs fois par seconde
 
   const el = {
@@ -16,20 +23,39 @@
     net: $("net"),
     installBtn: $("installBtn"),
     settingsBtn: $("settingsBtn"),
+
+    // connexion
+    screenLogin: $("screenLogin"),
+    loginForm: $("loginForm"),
+    loginEmail: $("loginEmail"),
+    loginPassword: $("loginPassword"),
+    loginError: $("loginError"),
+
+    // contexte
+    screenContext: $("screenContext"),
+    ctxNow: $("ctxNow"),
+    ctxClasse: $("ctxClasse"),
+    ctxCours: $("ctxCours"),
+    ctxCoursHint: $("ctxCoursHint"),
+    ctxSalle: $("ctxSalle"),
+    ctxError: $("ctxError"),
+    ctxLogout: $("ctxLogout"),
+
+    // scan
+    screenScan: $("screenScan"),
+    screenManual: $("screenManual"),
     classe: $("classe"),
     badge: $("badge"),
     cours: $("cours"),
-    screenScan: $("screenScan"),
-    screenManual: $("screenManual"),
     viewfinder: $("viewfinder"),
     overlay: $("vfOverlay"),
     overlayTitle: $("vfTitle"),
     overlayText: $("vfText"),
     overlayBtn: $("vfAction"),
     overlayBtn2: $("vfAction2"),
+    feedback: $("feedback"),
     torchBtn: $("torchBtn"),
     switchCamBtn: $("switchCamBtn"),
-    feedback: $("feedback"),
     fbIcon: $("fbIcon"),
     fbTitle: $("fbTitle"),
     fbSub: $("fbSub"),
@@ -42,27 +68,28 @@
     manualForm: $("manualForm"),
     manualInput: $("manualInput"),
     manualError: $("manualError"),
-    manualCodes: $("manualCodes"),
+
+    // réglages
     settings: $("settings"),
     setSound: $("setSound"),
     setVibrate: $("setVibrate"),
-    setCourse: $("setCourse"),
-    setFailure: $("setFailure"),
-    resetData: $("resetData"),
+    pendingNote: $("pendingNote"),
+    clearQueue: $("clearQueue"),
     closeSettings: $("closeSettings"),
+
     flash: $("flash"),
     toast: $("toast"),
   };
 
-  const state = { tab: "scan", lastCode: null, lastAt: 0, deviceId: null, cameras: [], deferredInstall: null, cameraError: null, busy: false };
+  const state = {
+    tab: "scan", lastCode: null, lastAt: 0, deviceId: null, cameras: [],
+    deferredInstall: null, cameraError: null, dashboard: null, busy: false,
+  };
   let toastTimer = null;
 
   // ---------------------------------------------------------------- affichage
   const fmtTime = (iso) =>
     new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-
-  const initials = (name) =>
-    String(name).split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
   function toast(message) {
     el.toast.textContent = message;
@@ -84,13 +111,17 @@
 
   function flash(kind) {
     el.flash.className = "flash " + kind;
-    void el.flash.offsetWidth; // relance l'animation CSS
+    void el.flash.offsetWidth;
     el.flash.classList.add("go");
   }
 
   function setViewfinderBlocked(blocked, options) {
     el.viewfinder.classList.toggle("is-blocked", blocked);
-    if (!blocked) return;
+    if (!blocked) {
+      el.overlayBtn2.hidden = true;
+      el.overlayBtn2.onclick = null;
+      return;
+    }
     const o = options || {};
     el.overlayTitle.textContent = o.title || "Indisponible";
     el.overlayText.textContent = o.text || "";
@@ -106,19 +137,18 @@
     }
   }
 
-  // Message d'erreur en ligne sous le champ de saisie manuelle.
   function showManualError(message) {
     el.manualError.textContent = message;
     el.manualError.hidden = false;
     el.manualInput.setAttribute("aria-invalid", "true");
   }
+
   function clearManualError() {
-    el.manualError.hidden = true;
     el.manualError.textContent = "";
+    el.manualError.hidden = true;
     el.manualInput.removeAttribute("aria-invalid");
   }
 
-  // Traduit l'erreur caméra en message actionnable (permission, matériel, contexte…).
   function describeCameraError(err) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return {
@@ -145,102 +175,180 @@
     return { title: "Caméra indisponible", text: "Autorise la caméra, ou passe à la saisie manuelle." };
   }
 
-  function renderNetwork() {
+  function showScreen(name) {
+    for (const s of [el.screenLogin, el.screenContext, el.screenScan, el.screenManual]) {
+      s.classList.toggle("on", false);
+    }
+    // le scan et le manuel sont pilotés par l'onglet une fois le contexte prêt
+    if (name === "login") el.screenLogin.classList.add("on");
+    if (name === "context") el.screenContext.classList.add("on");
+    if (name === "scan") { setTab(state.tab || "scan"); }
+    document.querySelector(".tabs").hidden = !(name === "scan");
+    el.settingsBtn.hidden = name === "login";
+  }
+
+  async function renderNetwork() {
     const online = VC.api.isOnline();
-    const pending = VC.api.pendingCount();
+    const pending = await VC.api.pendingCount();
     el.net.textContent =
       (online ? "En ligne" : "Hors ligne") + (pending ? " · " + pending + " en attente" : "");
     el.net.className = "chip " + (online ? (pending ? "pending" : "is-online") : "is-offline");
   }
 
   function renderSession() {
-    const course = VC.api.getActiveCourse();
-    const online = VC.api.isOnline();
-    if (!course) {
-      el.classe.textContent = "Aucun cours";
-      el.badge.textContent = "Aucune session";
-      el.badge.className = "badge is-off";
-      el.cours.textContent = "La direction doit ouvrir une session pour scanner.";
-      return;
-    }
-    const classe = VC.api.listClasses().find((c) => c.id === course.classe_id);
-    el.classe.textContent = classe ? classe.nom : "Classe";
-    el.badge.textContent = "Session active";
+    const sel = VC.api.selected;
+    if (!sel) return;
+    el.classe.textContent = sel.classeNom || "Classe";
+    el.badge.textContent = "Pointage actif";
     el.badge.className = "badge";
+    const online = VC.api.isOnline();
     el.cours.textContent =
-      course.nom + " · " + course.heure_debut + " – " + course.heure_fin + (online ? "" : " · hors ligne");
+      sel.coursNom + " · " + (sel.salle ? sel.salle + " · " : "") + (online ? "" : "hors ligne");
   }
 
   function renderCounter() {
-    const course = VC.api.getActiveCourse();
-    const total = course ? VC.api.listStudents(course.classe_id).length : 0;
-    const present = course
-      ? new Set(VC.api.recordsForCourse(course.id).map((r) => r.studentId)).size
-      : 0;
-    el.count.innerHTML = present + "<small>/" + total + "</small>";
-    el.barFill.style.width = total ? Math.round((present / total) * 100) + "%" : "0%";
+    const d = state.dashboard;
+    if (!d) return;
+    el.count.innerHTML = d.presents + "<small>/" + d.effectif + "</small>";
+    el.barFill.style.width = d.effectif ? Math.round((d.presents / d.effectif) * 100) + "%" : "0%";
   }
 
-  function renderRecent() {
-    const course = VC.api.getActiveCourse();
-    const list = course ? VC.api.recordsForCourse(course.id).slice(-5).reverse() : [];
-    if (!list.length) {
+  async function renderRecent() {
+    const local = await VC.api.listRecent();
+    const items = local.map((r) => ({
+      who: r.nom || r.code,
+      code: r.code,
+      at: r.at,
+      tag: r.state === "pending" ? "EN ATTENTE" : r.state === "rejected" ? "REJETÉ" : (r.note || ""),
+      kind: r.state,
+    }));
+    if (!items.length) {
       el.recentList.innerHTML = '<li class="empty">Aucun scan pour ce cours.</li>';
       return;
     }
-    el.recentList.innerHTML = list
-      .map((r) => {
-        const s = VC.api.getStudentById(r.studentId);
-        const suffix = r.synced ? "" : " · en attente";
-        return (
-          '<li><span class="ini">' + esc(initials(s ? s.nom : "?")) + "</span>" +
-          '<span class="who">' + esc(s ? s.nom : "Inconnu") +
-          "<span>" + esc(r.code) + esc(suffix) + "</span></span>" +
+    el.recentList.innerHTML = items
+      .map(
+        (r) =>
+          '<li><span class="who">' + esc(r.who) +
+          "<span>" + esc(r.code) + (r.tag ? " · " + esc(r.tag) : "") + "</span></span>" +
           '<span class="at">' + esc(fmtTime(r.at)) + "</span></li>"
-        );
-      })
+      )
       .join("");
   }
 
-  function renderManualCodes() {
-    const course = VC.api.getActiveCourse();
-    const students = course ? VC.api.listStudents(course.classe_id) : [];
-    el.manualCodes.innerHTML = students
-      .map((s) => '<button type="button" data-code="' + esc(s.code_qr) + '">' + esc(s.code_qr) + "</button>")
-      .join("");
-  }
-
-  function renderAll() {
-    renderNetwork();
+  async function renderAll() {
+    await renderNetwork();
     renderSession();
     renderCounter();
-    renderRecent();
-    renderManualCodes();
-    applyCourseAvailability();
+    await renderRecent();
   }
 
-  function applyCourseAvailability() {
-    const course = VC.api.getActiveCourse();
-    if (!course) {
-      stopCamera();
-      setFeedback("no-course", "Aucun cours en cours", "Aucune session ouverte pour le moment.", "");
-      setViewfinderBlocked(true, {
-        title: "Aucun cours en cours",
-        text: "Le scan est désactivé. Demande à la direction d'ouvrir une session.",
-        actionLabel: "Ouvrir les réglages",
-        action: openSettings,
-      });
-      el.torchBtn.hidden = true;
-      el.switchCamBtn.hidden = true;
-      return;
+  /** Données réelles du cours : effectif, présents confirmés. */
+  async function refreshDashboard() {
+    if (!VC.api.selected) return;
+    const res = await VC.api.fetchDashboard();
+    if (res.status === "ok") {
+      state.dashboard = res.data;
+      const cours = res.data.cours_prevus.find((c) => c.id === VC.api.selected.coursId);
+      if (cours) {
+        const eleves = res.data.eleves.filter((e) =>
+          e.presences.some((p) => p.course_id === cours.id)
+        );
+        state.dashboard = Object.assign({}, res.data, {
+          effectif: res.data.effectif,
+          presents: eleves.length,
+          details: eleves.map((e) => ({
+            nom: e.nom,
+            code: e.code_qr,
+            at: (e.presences.find((p) => p.course_id === cours.id) || {}).scanned_at,
+          })),
+        });
+      }
     }
+    renderCounter();
+  }
 
-    // Un cours vient d'être (re)sélectionné : on repart d'un bandeau neutre.
-    if (el.app.dataset.state === "no-course") {
-      setFeedback("idle", "En attente d'un scan", "Approche la carte élève de la caméra.", "");
+  // -------------------------------------------------------------------- scan
+  async function handleScan(rawCode) {
+    const code = String(rawCode || "").trim().toUpperCase();
+    if (!code || state.busy) return;
+
+    const now = Date.now();
+    if (code === state.lastCode && now - state.lastAt < DEDUPE_MS) return;
+    state.lastCode = code;
+    state.lastAt = now;
+    state.busy = true;
+
+    try {
+      const res = await VC.api.recordScan(code);
+      const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+      switch (res.status) {
+        case "recorded":
+          result("success", "Présence confirmée", (res.nom || code) + " · serveur", time);
+          break;
+        case "duplicate":
+          result("duplicate", "Déjà scanné", "Ce cours a déjà validé cette carte.", time);
+          break;
+        case "queued":
+          result("queued", "En attente de synchronisation",
+            "Réseau indisponible — le pointage reste EN ATTENTE jusqu'à confirmation du serveur.", time);
+          break;
+        case "pending-dup":
+          result("pending-dup", "Déjà en attente", "Ce pointage est déjà dans la file hors ligne.", time);
+          break;
+        case "invalid":
+          showManualError("Carte inconnue : « " + code + " ». Vérifie le code ou réessaie le scan.");
+          result("invalid", "Carte non reconnue", "Aucun élève pour « " + code + " » (réponse du serveur).", time);
+          break;
+        case "no-course":
+          result("no-course", "Aucun cours applicable", "Il est " + (res.heure || "?") + " à Conakry : aucun cours actif pour cette classe.", time);
+          break;
+        case "ambiguous":
+          result("ambiguous", "Contexte ambigu", "Plusieurs cours actifs pour cette classe. Reprends le contexte et précise le cours ou la salle.", time);
+          break;
+        case "salle":
+          result("salle", "Salle / cours incorrects", "Le cours choisi ne correspond pas à la salle ou n'est pas actif.", time);
+          break;
+        case "session":
+          result("session", "Session expirée", "Reconnexion nécessaire.", time);
+          await stopCamera();
+          showScreen("login");
+          break;
+        default:
+          result("server-error", "Erreur serveur", "Réponse inattendue — le pointage n'est PAS confirmé. Réessaie.", time);
+      }
+    } catch (err) {
+      const reason = (err && err.message) || "Le service n'a pas répondu.";
+      result("server-error", "Enregistrement impossible", reason + " — le pointage n'est PAS confirmé.", "");
+    } finally {
+      state.busy = false;
     }
+  }
 
-    if (state.cameraError) {
+  function result(kind, title, sub, time) {
+    setFeedback(kind, title, sub, time);
+    flash(kind);
+    VC.feedback.play(["server-error", "rejected", "error"].includes(kind) ? "error" : kind);
+    if (kind === "success" || kind === "queued") el.manualInput.value = "";
+    if (kind !== "invalid") clearManualError();
+    if (kind === "server-error") toast("Enregistrement impossible — réessaie");
+    Promise.resolve(refreshDashboard()).then(renderAll).catch(() => renderAll());
+  }
+
+  // ------------------------------------------------------------------ caméra
+  async function startCamera() {
+    if (!VC.api.selected || state.cameraError) return;
+    if (VC.qr.isRunning()) return;
+    try {
+      await VC.qr.start({ deviceId: state.deviceId, onCode: handleScan });
+      state.cameraError = null;
+      setViewfinderBlocked(false);
+      state.cameras = await VC.qr.listCameras();
+      el.switchCamBtn.hidden = state.cameras.length < 2;
+      setTimeout(() => { el.torchBtn.hidden = !VC.qr.hasTorch(); }, 900);
+    } catch (err) {
+      state.cameraError = err || new Error("caméra indisponible");
       const info = describeCameraError(state.cameraError);
       setViewfinderBlocked(true, {
         title: info.title,
@@ -250,82 +358,6 @@
         secondaryLabel: "Saisie manuelle",
         secondaryAction: () => setTab("manual"),
       });
-    } else {
-      setViewfinderBlocked(false);
-    }
-  }
-
-  // -------------------------------------------------------------------- scan
-  async function handleScan(rawCode) {
-    const code = String(rawCode || "").trim().toUpperCase();
-    if (!code) return;
-
-    const now = Date.now();
-    if (code === state.lastCode && now - state.lastAt < DEDUPE_MS) return;
-    state.lastCode = code;
-    state.lastAt = now;
-
-    if (state.busy) return; // une écriture est déjà en cours : on ignore le doublon
-    const course = VC.api.getActiveCourse();
-    if (!course) {
-      return result("no-course", "Aucun cours en cours", "Aucune session ouverte pour le moment.");
-    }
-
-    const student = VC.api.findStudentByCode(code);
-    if (!student) {
-      showManualError("Carte inconnue : « " + code + " ». Vérifie le code ou réessaie le scan.");
-      return result("invalid", "Carte non reconnue", "Aucun élève pour « " + code + " ».");
-    }
-
-    state.busy = true;
-    try {
-      const res = await VC.api.recordAttendance({ courseId: course.id, studentId: student.id, code });
-      if (res.status === "duplicate") {
-        return result("duplicate", "Déjà scanné", student.nom + " est déjà présent(e) pour ce cours.");
-      }
-      if (res.status === "queued") {
-        return result("queued", "Enregistré hors ligne", student.nom + " · sera synchronisé au retour du réseau.");
-      }
-      return result("success", "Présence validée", student.nom + " · " + student.code_qr);
-    } catch (err) {
-      // Échec du service : on le distingue clairement d'une carte invalide.
-      const reason = (err && err.message) || "Le service n'a pas répondu.";
-      return result("error", "Enregistrement impossible", student.nom + " · " + reason);
-    } finally {
-      state.busy = false;
-    }
-  }
-
-  function result(kind, title, sub) {
-    const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-    setFeedback(kind, title, sub, time);
-    flash(kind);
-    VC.feedback.play(kind);
-    if (kind === "success" || kind === "queued") el.manualInput.value = "";
-    if (kind !== "invalid") clearManualError();
-    if (kind === "error") toast("Enregistrement impossible — réessaie");
-    renderAll();
-  }
-
-  // ------------------------------------------------------------------ caméra
-  async function startCamera() {
-    if (!VC.api.getActiveCourse() || state.cameraError) return;
-    if (VC.qr.isRunning()) return;
-    try {
-      await VC.qr.start({ deviceId: state.deviceId, onCode: handleScan });
-      state.cameraOk = true;
-      state.cameraError = null;
-      setViewfinderBlocked(false);
-      state.cameras = await VC.qr.listCameras();
-      el.switchCamBtn.hidden = state.cameras.length < 2;
-      // La torche n'est détectable qu'une fois la piste vidéo active.
-      setTimeout(() => {
-        el.torchBtn.hidden = !VC.qr.hasTorch();
-      }, 900);
-    } catch (err) {
-      state.cameraOk = false;
-      state.cameraError = err || new Error("caméra indisponible");
-      applyCourseAvailability();
     }
   }
 
@@ -360,74 +392,137 @@
     else stopCamera();
   }
 
+  // ---------------------------------------------------------------- connexion
+  function bindLogin() {
+    el.loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      el.loginError.hidden = true;
+      const res = await VC.api.login(el.loginEmail.value.trim(), el.loginPassword.value);
+      if (res.status === "ok") {
+        el.loginPassword.value = "";
+        enterContext();
+      } else {
+        el.loginError.textContent =
+          res.status === "identifiants" ? "Identifiants invalides." :
+          res.status === "role" ? "Ce compte n'est pas un compte admin." :
+          res.status === "champs" ? "Email et mot de passe requis." :
+          "Erreur serveur — réessaie.";
+        el.loginError.hidden = false;
+      }
+    });
+  }
+
+  async function enterContext() {
+    const res = await VC.api.ensureContext();
+    if (res.status === "session") return showScreen("login");
+    if (res.status !== "ok") {
+      el.ctxError.textContent = "Erreur serveur — réessaie.";
+      el.ctxError.hidden = false;
+      return showScreen("context");
+    }
+    const ctx = VC.api.context;
+    el.ctxNow.textContent = ctx.jour + " · " + ctx.heure + " (Conakry)";
+    el.ctxClasse.innerHTML = ctx.classes
+      .map((c) => '<option value="' + esc(c.id) + '">' + esc(c.nom) + "</option>")
+      .join("");
+    fillCoursOptions();
+    el.ctxError.hidden = true;
+    showScreen("context");
+  }
+
+  function fillCoursOptions() {
+    const classeId = el.ctxClasse.value;
+    const actifs = VC.api.activeCourses().filter((c) => c.classe_id === classeId);
+    el.ctxCours.innerHTML = actifs.length
+      ? actifs
+          .map(
+            (c) =>
+              '<option value="' + esc(c.id) + '">' + esc(c.nom) +
+              " (" + esc(c.heure_debut.slice(0, 5)) + "–" + esc(c.heure_fin.slice(0, 5)) + ")" +
+              (c.salle ? " · " + esc(c.salle) : "") + "</option>"
+          )
+          .join("")
+      : '<option value="">Aucun cours actif pour cette classe</option>';
+    el.ctxCoursHint.textContent = actifs.length
+      ? "Seuls les cours actifs à l'heure de Conakry peuvent être pointés."
+      : "Aucun cours actif maintenant : la direction doit mettre à jour le planning.";
+  }
+
+  function bindContext() {
+    el.ctxClasse.addEventListener("change", fillCoursOptions);
+    el.contextForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const coursId = el.ctxCours.value;
+      if (!coursId) return;
+      const cours = VC.api.context.cours.find((c) => c.id === coursId);
+      const classe = VC.api.context.classes.find((c) => c.id === el.ctxClasse.value);
+      VC.api.setSelected({
+        classeId: classe.id,
+        classeNom: classe.nom,
+        coursId: cours.id,
+        coursNom: cours.nom,
+        salle: el.ctxSalle.value.trim(),
+      });
+      state.cameraError = null;
+      state.dashboard = null;
+      showScreen("scan");
+      setFeedback("idle", "En attente d'un scan", "Approche la carte élève de la caméra.", "");
+      refreshDashboard().then(renderAll);
+    });
+    el.ctxLogout.addEventListener("click", async () => {
+      await VC.api.logout();
+      showScreen("login");
+    });
+  }
+
   // ---------------------------------------------------------------- réglages
   function openSettings() {
-    el.setSound.checked = VC.prefs.sound !== false;
-    el.setVibrate.checked = VC.prefs.vibrate !== false;
-    el.setCourse.value = VC.prefs.courseId || "";
-    el.setFailure.checked = VC.api.isFailureMode();
+    el.setSound.checked = VC.api.prefs.sound !== false;
+    el.setVibrate.checked = VC.api.prefs.vibrate !== false;
+    VC.api.pendingCount().then((n) => {
+      el.pendingNote.textContent = n
+        ? n + " pointage(s) EN ATTENTE de synchronisation."
+        : "Aucun pointage en attente.";
+    });
     el.settings.showModal();
   }
 
   function bindSettings() {
     el.setSound.addEventListener("change", () => VC.api.setPref("sound", el.setSound.checked));
     el.setVibrate.addEventListener("change", () => VC.api.setPref("vibrate", el.setVibrate.checked));
-    el.setCourse.addEventListener("change", () => {
-      VC.api.setActiveCourseId(el.setCourse.value);
-      state.cameraError = null;
-      stopCamera().then(() => {
-        if (state.tab === "scan") startCamera();
+    el.clearQueue.addEventListener("click", () => {
+      if (!confirm("Vider la file en attente ? Les pointages non synchronisés seront perdus.")) return;
+      VC.api.clearQueue().then(() => {
+        renderNetwork();
+        toast("File locale vidée");
+        el.settings.close();
       });
-    });
-    el.resetData.addEventListener("click", () => {
-      VC.api.resetLocalData();
-      clearManualError();
-      setFeedback("idle", "En attente d'un scan", "Approche la carte élève de la caméra.", "");
-      toast("Données locales effacées");
-    });
-    el.setFailure.addEventListener("change", () => {
-      VC.api.setFailureMode(el.setFailure.checked);
-      toast(el.setFailure.checked ? "Panne d'enregistrement simulée" : "Panne simulée désactivée");
     });
     el.closeSettings.addEventListener("click", () => el.settings.close());
   }
 
-  function fillCourseOptions() {
-    const options = ['<option value="">Aucun (simuler)</option>'].concat(
-      VC.api.listCourses().map((c) => {
-        const classe = VC.api.listClasses().find((k) => k.id === c.classe_id);
-        return (
-          '<option value="' + esc(c.id) + '">' + esc((classe ? classe.nom + " — " : "") + c.nom) +
-          " (" + esc(c.heure_debut) + "–" + esc(c.heure_fin) + ")</option>"
-        );
-      })
-    );
-    el.setCourse.innerHTML = options.join("");
-  }
-
   // ------------------------------------------------------------------ réseau
   async function onOnline() {
-    renderNetwork();
     try {
-      const sent = await VC.api.flushQueue();
-      renderAll();
-      toast(sent ? sent + " présence(s) synchronisée(s)" : "Réseau rétabli");
+      const { synced } = await VC.api.flushQueue();
+      await refreshDashboard();
+      await renderAll();
+      toast(synced ? synced + " pointage(s) synchronisé(s)" : "Réseau rétabli");
     } catch {
-      renderAll();
+      await renderAll();
       toast("Synchronisation impossible — la file est conservée");
     }
   }
 
   function onOffline() {
     renderNetwork();
-    renderAll();
-    toast("Hors ligne : les scans sont mis en file");
+    toast("Hors ligne : les scans restent EN ATTENTE");
   }
 
   // --------------------------------------------------------------------- PWA
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
-    if (!location.protocol.startsWith("http")) return; // file:// ne peut pas enregistrer de SW
+    if (!location.protocol.startsWith("http")) return;
     navigator.serviceWorker.register("./service-worker.js").catch(() => {});
   }
 
@@ -448,6 +543,9 @@
 
   // -------------------------------------------------------------------- init
   function bindEvents() {
+    bindLogin();
+    bindContext();
+    bindSettings();
     el.settingsBtn.addEventListener("click", openSettings);
     el.torchBtn.addEventListener("click", async () => {
       const on = await VC.qr.setTorch(!el.torchBtn.classList.contains("on"));
@@ -463,47 +561,39 @@
       handleScan(el.manualInput.value);
     });
     el.manualInput.addEventListener("input", clearManualError);
-    el.manualCodes.addEventListener("click", (event) => {
-      const btn = event.target.closest("button[data-code]");
-      if (btn) {
-        clearManualError();
-        handleScan(btn.dataset.code);
-      }
-    });
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
-    document.addEventListener("visibilitychange", () => {
+    document.addEventListener("visibilitychange", async () => {
       if (document.hidden) stopCamera();
-      else if (state.tab === "scan") startCamera();
+      else {
+        if (state.tab === "scan" && VC.api.selected) startCamera();
+        // retour au premier plan : re-synchronise la file et le contexte
+        try {
+          const { synced } = await VC.api.flushQueue();
+          if (synced) toast(synced + " pointage(s) synchronisé(s)");
+          await refreshDashboard();
+          await renderAll();
+        } catch {
+          await renderAll();
+          toast("Synchronisation impossible — la file est conservée");
+        }
+      }
     });
-    document.addEventListener(
-      "pointerdown",
-      () => VC.feedback.unlock(),
-      { once: true }
-    );
+    document.addEventListener("pointerdown", () => VC.feedback.unlock(), { once: true });
     VC.api.onChange(renderAll);
   }
 
   function init() {
-    fillCourseOptions();
-    bindSettings();
-    bindInstall();
     bindEvents();
-    renderAll();
-    setTab("scan");
+    bindInstall();
     registerServiceWorker();
-    setFeedback("idle", "En attente d'un scan", "Approche la carte élève de la caméra.", "");
+    renderNetwork();
+    // Sans session : écran connexion. Avec session : contexte de pointage.
+    VC.api.ensureContext().then((res) => {
+      if (res.status === "ok") enterContext();
+      else showScreen("login");
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);
-
-  // Accroche de test/démo : permet de simuler un scan sans caméra.
-  window.VC.debug = {
-    scan: (code) => handleScan(code),
-    setOffline: (value) => VC.api.setForcedOffline(value),
-    setFailure: (value) => VC.api.setFailureMode(value),
-    startCamera,
-    retryCamera,
-    state,
-  };
 })();

@@ -21,21 +21,56 @@
 
     <header class="topbar">
       <div class="brand"><i class="dot" aria-hidden="true"></i>VerifyCheck</div>
-      <span class="chip is-online" id="net" aria-live="polite">En ligne</span>
+      <span class="chip is-online" id="net" aria-live="polite">…</span>
       <button class="icon-btn spacer" id="installBtn" hidden>Installer</button>
       <button class="icon-btn" id="settingsBtn" aria-label="Réglages" title="Réglages">⚙</button>
     </header>
 
-    <section class="session" aria-label="Cours en cours">
-      <div class="row">
-        <h1 id="classe">—</h1>
-        <span class="badge" id="badge">—</span>
-      </div>
-      <p class="meta" id="cours">—</p>
-    </section>
+    <!-- ÉCRAN CONNEXION -->
+    <main class="screen on gate" id="screenLogin">
+      <h1>Connexion agent</h1>
+      <p class="gate-note">Compte admin de la salle, fourni par la direction.</p>
+      <form id="loginForm">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" autocomplete="username" required>
+        <label for="loginPassword">Mot de passe</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+        <p class="form-error" id="loginError" role="alert" hidden></p>
+        <button type="submit" class="primary block">Se connecter</button>
+      </form>
+    </main>
+
+    <!-- ÉCRAN CONTEXTE (classe + cours du moment) -->
+    <main class="screen gate" id="screenContext">
+      <h1>Contexte de pointage</h1>
+      <p class="gate-note" id="ctxNow">—</p>
+      <form id="contextForm">
+        <label for="ctxClasse">Classe</label>
+        <select id="ctxClasse" required></select>
+
+        <label for="ctxCours">Cours du moment</label>
+        <select id="ctxCours" required></select>
+        <p class="form-hint" id="ctxCoursHint">Seuls les cours actifs à l'heure de Conakry peuvent être pointés.</p>
+
+        <label for="ctxSalle">Salle du portique (facultatif)</label>
+        <input id="ctxSalle" type="text" inputmode="text" autocomplete="off" placeholder="ex. B12">
+
+        <p class="form-error" id="ctxError" role="alert" hidden></p>
+        <button type="submit" class="primary block">Commencer le pointage</button>
+        <button type="button" class="block" id="ctxLogout">Se déconnecter</button>
+      </form>
+    </main>
 
     <!-- ÉCRAN SCAN -->
-    <main class="screen on" id="screenScan">
+    <main class="screen" id="screenScan">
+      <div class="session" aria-label="Contexte de pointage">
+        <div class="row">
+          <h1 id="classe">—</h1>
+          <span class="badge" id="badge">—</span>
+        </div>
+        <p class="meta" id="cours">—</p>
+      </div>
+
       <div class="viewfinder" id="viewfinder">
         <div id="reader"></div>
         <div class="reticle" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
@@ -69,7 +104,7 @@
       <div class="counter">
         <div class="line">
           <span class="num" id="count">0<small>/0</small></span>
-          <span class="label">présents dans ce cours</span>
+          <span class="label">présents confirmés dans ce cours</span>
         </div>
         <div class="bar" role="progressbar" aria-label="Progression des présences"><i id="barFill"></i></div>
       </div>
@@ -86,13 +121,11 @@
       <form id="manualForm">
         <label for="manualInput">Code de la carte</label>
         <input id="manualInput" name="code" type="text" inputmode="text" autocomplete="off"
-               autocapitalize="characters" spellcheck="false" placeholder="VC-6A-0001"
+               autocapitalize="characters" spellcheck="false" placeholder="Code de la carte"
                aria-describedby="manualError" required>
         <p class="field-error" id="manualError" role="alert" hidden></p>
-        <button type="submit">Valider la présence</button>
+        <button type="submit" class="primary block">Valider la présence</button>
       </form>
-      <h2>Cartes de cette classe (démo)</h2>
-      <div class="codes" id="manualCodes"></div>
     </main>
 
     <nav class="tabs" role="tablist" aria-label="Modes de scan">
@@ -103,7 +136,6 @@
 
   <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
     <h2 id="settingsTitle">Réglages</h2>
-    <p class="note">Mode démo : le cours « en cours » et les données viennent de <code>lib/mock-data.js</code>, en attendant l'API du Rôle 1.</p>
 
     <div class="field">
       <label for="setSound">Son de confirmation</label>
@@ -113,17 +145,10 @@
       <label for="setVibrate">Vibration</label>
       <input type="checkbox" id="setVibrate" checked>
     </div>
-    <div class="field">
-      <label for="setCourse">Cours simulé</label>
-      <select id="setCourse"></select>
-    </div>
-    <div class="field">
-      <label for="setFailure">Simuler une panne d'enregistrement</label>
-      <input type="checkbox" id="setFailure">
-    </div>
+    <p class="note" id="pendingNote">—</p>
 
     <div class="actions">
-      <button type="button" class="danger" id="resetData">Effacer les scans locaux</button>
+      <button type="button" class="danger" id="clearQueue">Vider la file en attente</button>
       <button type="button" class="primary" id="closeSettings">Fermer</button>
     </div>
   </dialog>
@@ -135,7 +160,6 @@
   </noscript>
 
   <script src="vendor/html5-qrcode.min.js"></script>
-  <script src="lib/mock-data.js"></script>
   <script src="lib/feedback.js"></script>
   <script src="lib/api.js"></script>
   <script src="lib/qr.js"></script>
