@@ -42,9 +42,9 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
 ## Sprint 2 — Flux de scan
 **Objectif : le cœur du produit.**
 
-- [ ] PWA scanner : caméra navigateur avec `html5-qrcode`
-- [ ] Association scan → salle → cours actif (recherche du cours correspondant au moment du scan)
-- [ ] Enregistrement de la présence horodatée dans `attendance`
+- [x] PWA scanner : caméra navigateur avec `html5-qrcode`
+- [x] Association scan → salle → cours actif (recherche du cours correspondant au moment du scan)
+- [x] Enregistrement de la présence horodatée dans `attendance`
 - [ ] Feedback visuel/sonore de confirmation (présence validée / erreur)
 - [ ] Tests manuels du parcours scan → présence dans le navigateur
 

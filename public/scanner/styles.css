@@ -271,3 +271,20 @@ dialog.sheet .danger { color: #fecaca; }
   .flash.go { animation-duration: .01s; }
   .bar i { transition: none; }
 }
+
+/* -- Écrans connexion + contexte (PWA réelle) ------------------------- */
+.gate { padding: 24px 20px; gap: 10px; justify-content: center; }
+.gate h1 { font-size: 20px; margin: 0; }
+.gate-note { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.gate form { display: flex; flex-direction: column; gap: 8px; }
+.gate label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.gate input, .gate select {
+  height: 46px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); padding: 0 12px; font-size: 16px;
+}
+.gate input:focus, .gate select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.block { width: 100%; height: 48px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font-size: 15px; font-weight: 600; }
+.block.primary { background: var(--accent); border-color: var(--accent); color: #fff; margin-top: 10px; }
+.form-error { color: #ff8a8a; font-size: 13px; margin: 0; }
+.form-hint { color: var(--muted); font-size: 12px; margin: 0; }

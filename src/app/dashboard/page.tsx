@@ -3,7 +3,7 @@ import DashboardClient from "@/components/dashboard/DashboardClient";
 
 export const metadata: Metadata = {
   title: "Tableau de bord — VerifyCheck",
-  description: "Maquette du suivi de présence scolaire par classe, cours et élève.",
+  description: "Suivi de présence scolaire réel par classe, cours et élève.",
 };
 
 export default function DashboardPage() {

@@ -38,6 +38,15 @@
 Les variables **publiques** du projet Supabase (URL + clé `anon`) sont commitées en vraies valeurs dans **`.env.example`** : copiez-le en `.env.local` pour développer (`cp .env.example .env.local`) ou reprenez les valeurs directement. La clé `anon` est publique par conception (RLS côté base) — côté serveur/node, copier le fichier en `.env.local` suffit pour Next.js.
 Les tokens privés (`GITHUB_TOKEN`, `SUPABASE_TOKEN`, `VERCEL_TOKEN`) vivent **uniquement** dans le `.env` local de Patrick, jamais commité ni copié.
 
+## Refonte produit (en cours — branche `feat/refonte-produit`)
+
+- **FAIT (code)** : corrections métier backend — `POST /api/scan` refuse désormais un contexte ambigu (`cours_ambigu`, plus jamais de choix arbitraire du 1er cours) et accepte `cours` explicite ; export CSV honnête (un cours non terminé n'est pas « absent ») ; nouvel endpoint `GET /api/scan/context` (contexte de pointage réel).
+- **FAIT (code)** : PWA scanner reconnectée aux API réelles (login same-origin, contexte, `POST /api/scan`), file hors ligne **IndexedDB** persistante avec états EN ATTENTE / confirmé / doublon confirmé / rejeté ; écrans connexion + contexte de pointage ; démo (`mock-data.js`, forçage hors-ligne) retirée de la production ; saisie manuelle conservée.
+- **FAIT (code)** : dashboard reconnecté aux données réelles (`GET /api/dashboard`) — vues Générale / Classes / Cours / Élèves / Cartes QR, filtres date+classe+cours, distinction PRÉSENT / NON POINTÉ / ABSENT à l'heure Conakry, export CSV, génération & impression des cartes QR depuis les élèves réels.
+- **FAIT** : design brief `docs/design-brief.md` (3 directions comparées, « Registre scolaire contemporain » retenu) + architecture produit `docs/produit-architecture.md`.
+- **À VÉRIFIER** : parcours réel login→scan→dashboard bloqué sur la création du **compte admin Supabase** (décision humaine) ; tests caméra/PWA sur téléphone réel ; QA navigateur complet.
+
+
 ---
 
 ## Événements de déblocage (historique court)
