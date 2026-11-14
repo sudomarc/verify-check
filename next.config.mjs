@@ -1,13 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Le scanner est un PWA statique (public/scanner/). On expose une URL propre
-  // /scanner qui sert son index.html, pour rester same-origin avec /api/scan.
-  async rewrites() {
-    return [
-      { source: "/scanner", destination: "/scanner/index.html" },
-      { source: "/scanner/", destination: "/scanner/index.html" },
-    ];
+  // La PWA scanner est statique (public/scanner/). On redirige l'URL propre
+  // /scanner vers son index.html pour que les chemins relatifs (styles, lib/*,
+  // service worker, manifest) résolvent bien sous /scanner/ et que le scope du
+  // service worker reste /scanner/.
+  async redirects() {
+    return [{ source: "/scanner", destination: "/scanner/index.html", permanent: false }];
   },
 };
-
 export default nextConfig;

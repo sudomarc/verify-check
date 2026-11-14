@@ -74,7 +74,7 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 
 - [ ] **Sprint 0 :** réaliser la maquette de la carte élève.
 - [ ] **Sprint 1 :** générer une carte ID avec un QR unique par élève et un rendu imprimable.
-- [x] **Sprint 1 — préparation :** créer des données fictives typées pour les classes, élèves, cours et présences (`src/lib/mock-data.ts`, PR #3 fusionnée). Ces données sont des mocks, pas des enregistrements Supabase.
+- [x] **Sprint 1 — préparation :** créer des données fictives typées pour les classes, élèves, cours et présences (`src/lib/mock-data.ts`, PR #3 fusionnée). Ces données sont des mocks, pas des enregistrements Supabase. *(Fichier supprimé depuis : les écrans utilisent les données réelles via `/api/dashboard`.)*
 - [ ] **Sprint 4 :** préparer un jeu de données de démonstration réaliste et cohérent.
 - [ ] **Sprint 4 :** préparer le scénario de présentation et coordonner la démonstration finale.
 - [ ] **Sprint 4 :** participer aux tests de bout en bout avec le rôle 2.

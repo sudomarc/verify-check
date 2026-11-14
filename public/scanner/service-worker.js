@@ -1,16 +1,15 @@
 // VerifyCheck — service worker du scanner.
 // Objectif : l'app s'ouvre et fonctionne même sans réseau (connectivité faible).
-// Les présences scannées hors ligne sont conservées côté client (localStorage)
-// puis synchronisées quand le réseau revient (voir lib/api.js).
+// Les présences scannées hors ligne sont conservées côté client (IndexedDB,
+// voir lib/api.js) puis synchronisées quand le réseau revient.
 
-const CACHE = "verifycheck-scan-v3";
+const CACHE = "verifycheck-scan-v4";
 
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./lib/mock-data.js",
   "./lib/feedback.js",
   "./lib/api.js",
   "./lib/qr.js",
@@ -37,10 +36,33 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
-  // Stale-while-revalidate : réponse immédiate depuis le cache (utile en
-  // connectivité faible), mise à jour silencieuse en arrière-plan.
+  // Les appels API dépendent de la session admin et de l'heure courante : ils
+  // ne doivent JAMAIS être servis depuis le cache (sinon un état obsolète —
+  // voire un contexte après déconnexion — serait réutilisé). On laisse le
+  // navigateur gérer le réseau ; l'absence de réseau est traitée par lib/api.js
+  // (file IndexedDB).
+  if (url.pathname.startsWith("/api/")) return;
+
+  // Navigations : réseau d'abord (contenu frais), repli sur le cache hors ligne.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Ressources statiques de l'app : stale-while-revalidate (démarrage instantané
+  // en connectivité faible, mise à jour silencieuse en arrière-plan).
   event.respondWith(
     caches.match(request).then((cached) => {
       const fromNetwork = fetch(request)
@@ -49,11 +71,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
           return response;
         })
-        .catch(() => {
-          if (cached) return cached;
-          if (request.mode === "navigate") return caches.match("./index.html");
-          return Response.error();
-        });
+        .catch(() => cached || Response.error());
       return cached || fromNetwork;
     })
   );

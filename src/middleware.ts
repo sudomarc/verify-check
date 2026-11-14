@@ -9,14 +9,16 @@ import {
 
 /**
  * Protection des routes admin (Sprint 1).
- * - `/dashboard` et `/scan` exigent une session admin valide ;
+ * - `/dashboard` exige une session admin valide ;
  * - le JWT est vérifié auprès de Supabase (pas une simple présence de cookie) ;
  * - si l'access token est expiré, la session est renouvelée via le refresh
  *   token (cookie 8 h) et les cookies sont ré-écrits (rotation) ;
- * - les endpoints `/api/**` gèrent leur propre auth (401 JSON).
+ * - les endpoints `/api/**` gèrent leur propre auth (401 JSON) ;
+ * - la PWA scanner (`/scanner/`, fichiers statiques) s'authentifie elle-même
+ *   via `/api/**`, elle n'est donc pas couverte par ce middleware.
  */
 
-const PROTECTED_PAGES = ["/dashboard", "/scan"];
+const PROTECTED_PAGES = ["/dashboard"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -66,5 +68,5 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/scan/:path*"],
+  matcher: ["/dashboard/:path*"],
 };
