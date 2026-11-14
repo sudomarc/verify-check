@@ -36,7 +36,7 @@
 ## Variables d'environnement (pour tous les rôles)
 
 Les variables **publiques** du projet Supabase (URL + clé `anon`) sont commitées en vraies valeurs dans **`.env.example`** : copiez-le en `.env.local` pour développer (`cp .env.example .env.local`) ou reprenez les valeurs directement. La clé `anon` est publique par conception (RLS côté base) — côté serveur/node, copier le fichier en `.env.local` suffit pour Next.js.
-Les tokens privés (`GITHUB_TOKEN`, `SUPABASE_TOKEN`, `VERCEL_TOKEN`) vivent **uniquement** dans le `.env` local de Patrick, jamais commité ni copié.
+Aucun token privé GitHub, Supabase ou Vercel ne doit figurer dans `.env.example`, dans la documentation ou dans Git. Les accès d'administration doivent être fournis uniquement par l'environnement local ou les mécanismes d'authentification propres à chaque outil.
 
 ## Refonte produit (en cours — branche `feat/refonte-produit`)
 
