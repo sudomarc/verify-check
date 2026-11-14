@@ -5,7 +5,19 @@
 > 2. Le Rôle 1 (Patrick) met à jour les sections des autres dès qu'une de ses tâches débloque la leur.
 > 3. Ce fichier est un **instantané**, pas une source de vérité technique : en cas de doute, se fier au code sur `main` et à `ROADMAP.md`/`TEAM.md`.
 
-**Dernière mise à jour :** 2026-11-13 — Rôle 1 : audit backend fusionné (PR #16) ; `.env.example` commité avec les variables **publiques** Supabase pour tous les rôles (les tokens privés restent dans `.env`, ignoré par Git)
+**Dernière mise à jour :** 2026-11-14 — Maintenance technique (cycle 1) : corrections scanner PWA (service worker), sécurité (open redirect), nettoyage du code mort, hygiène Git. Détails ci-dessous et dans `ROADMAP.md`.
+
+## Maintenance technique — cycle 1 (2026-11-14)
+
+- **Corrigé (scanner PWA)** : le service worker listait `./lib/mock-data.js` (fichier supprimé) → `cache.addAll` échouait et le shell n'était **jamais** mis en cache (mode hors ligne cassé). Liste corrigée + version de cache incrémentée (`v4`).
+- **Corrigé (sécurité/état)** : le service worker servait les réponses `/api/**` depuis le cache (stale-while-revalidate) — un contexte ou une session obsolète pouvait être réutilisé après déconnexion. Les appels `/api/**` ne sont plus mis en cache ; navigations en réseau-d'abord.
+- **Corrigé (fiabilité métier)** : `POST /api/scan` renvoyait `qr_invalide` (rejet définitif côté scanner) même en cas de panne base. Désormais une erreur autre que « 0 ligne » renvoie `erreur_base` (500) → le pointage reste en file au lieu d'être perdu.
+- **Corrigé (fiabilité métier)** : la file hors ligne ne rejette plus définitivement `cours_pas_actif` / `pas_de_cours` / `salle_invalide` à la synchronisation (ces cas surviennent normalement quand la synchro arrive après la fin du cours) : le pointage reste **EN ATTENTE**, jamais supprimé silencieusement. Seul `qr_invalide` reste un rejet définitif.
+- **Corrigé (sécurité)** : open redirect via le paramètre `next` de `/login` (`//evil.com`) → helper `safeNext` (chemin interne uniquement) + tests.
+- **Corrigé (PWA)** : l'URL propre `/scanner` (sans slash) cassait les chemins relatifs (`styles.css`, `lib/*`, service worker) ; redirection vers `/scanner/index.html`.
+- **Corrigé (encodage)** : `public/scanner/styles.css` contenait des octets UTF-8 invalides (`Écrans`, `réelle` en latin-1) → fichier ré-encodé UTF-8.
+- **Nettoyé** : suppression du code mort (`src/lib/mock-data.ts`, `src/lib/supabase.ts`, `pg_connect_tmp.mjs`, CSS `.ini`/`.codes`), protection `/scan` morte retirée du middleware, `.gitignore` complété (`supabase/.temp/`), page d'accueil placeholder remplacée.
+- **Vérifié** : `npm run typecheck` OK, `npm test` **37 tests** verts, `npm run build` OK, redirections scanner et 401 API re-testés en runtime.
 
 ---
 
