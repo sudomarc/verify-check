@@ -34,7 +34,7 @@ jobs:
         run: npm test
 
       - name: Tests unitaires mobile
-        run: node --experimental-strip-types --test tests/
+        run: node --experimental-strip-types --test tests/*.test.ts
         working-directory: mobile
 
       - name: Build
