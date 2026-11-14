@@ -7,7 +7,7 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
 
 | Couche | Choix |
 |---|---|
-| Frontend web (dashboard + carte ID) | Next.js (App Router) + Tailwind CSS |
+| Frontend web (dashboard + carte ID) | Next.js (App Router) + CSS Modules (pas de Tailwind) |
 | Scanner QR (côté salle) | PWA + caméra navigateur (`html5-qrcode`) |
 | Backend / Auth / DB temps réel | Supabase (Postgres + Auth + Realtime) |
 | Génération QR | lib `qrcode` (JS) |
@@ -27,7 +27,7 @@ Contrainte : budget 0 $ (free tiers uniquement). Voir `TEAM.md` pour la réparti
   - [ ] Écran scan (portique/PWA, feedback de confirmation)
   - [ ] Écran carte élève (carte ID avec QR)
   - [ ] Écran dashboard direction (présence par classe/cours/élève)
-- [ ] Initialisation du projet Next.js + Tailwind sur le repo
+- [x] Initialisation du projet Next.js sur le repo (CSS Modules ; pas de Tailwind)
 - [ ] Décisions d'architecture validées par Patrick (schéma + données collectées minimales)
 
 ## Sprint 1 — Fondations

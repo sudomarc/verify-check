@@ -5,7 +5,19 @@
 > 2. Le Rôle 1 (Patrick) met à jour les sections des autres dès qu'une de ses tâches débloque la leur.
 > 3. Ce fichier est un **instantané**, pas une source de vérité technique : en cas de doute, se fier au code sur `main` et à `ROADMAP.md`/`TEAM.md`.
 
-**Dernière mise à jour :** 2026-11-14 — Rôle 2 : application mobile native React Native/Expo (`mobile/`) sur branche `feat/app-mobile` — auth Supabase natif, scanner QR natif, file hors ligne, réutilisation des API backend via `Authorization: Bearer` (5 routes étendues, compat cookies préservée)
+**Dernière mise à jour :** 2026-11-14 — Rôle 2 : application mobile native React Native/Expo (`mobile/`) sur branche `feat/app-mobile` (PR #26) — auth Supabase natif, scanner QR natif, file hors ligne, réutilisation des API backend via `Authorization: Bearer` (5 routes étendues, compat cookies préservée). Le mobile est aligné sur le cycle de maintenance 1 (seul `qr_invalide` est un rejet définitif à la synchronisation).
+
+## Maintenance technique — cycle 1 (2026-11-14)
+
+- **Corrigé (scanner PWA)** : le service worker listait `./lib/mock-data.js` (fichier supprimé) → `cache.addAll` échouait et le shell n'était **jamais** mis en cache (mode hors ligne cassé). Liste corrigée + version de cache incrémentée (`v4`).
+- **Corrigé (sécurité/état)** : le service worker servait les réponses `/api/**` depuis le cache (stale-while-revalidate) — un contexte ou une session obsolète pouvait être réutilisé après déconnexion. Les appels `/api/**` ne sont plus mis en cache ; navigations en réseau-d'abord.
+- **Corrigé (fiabilité métier)** : `POST /api/scan` renvoyait `qr_invalide` (rejet définitif côté scanner) même en cas de panne base. Désormais une erreur autre que « 0 ligne » renvoie `erreur_base` (500) → le pointage reste en file au lieu d'être perdu.
+- **Corrigé (fiabilité métier)** : la file hors ligne ne rejette plus définitivement `cours_pas_actif` / `pas_de_cours` / `salle_invalide` à la synchronisation (ces cas surviennent normalement quand la synchro arrive après la fin du cours) : le pointage reste **EN ATTENTE**, jamais supprimé silencieusement. Seul `qr_invalide` reste un rejet définitif.
+- **Corrigé (sécurité)** : open redirect via le paramètre `next` de `/login` (`//evil.com`) → helper `safeNext` (chemin interne uniquement) + tests.
+- **Corrigé (PWA)** : l'URL propre `/scanner` (sans slash) cassait les chemins relatifs (`styles.css`, `lib/*`, service worker) ; redirection vers `/scanner/index.html`.
+- **Corrigé (encodage)** : `public/scanner/styles.css` contenait des octets UTF-8 invalides (`Écrans`, `réelle` en latin-1) → fichier ré-encodé UTF-8.
+- **Nettoyé** : suppression du code mort (`src/lib/mock-data.ts`, `src/lib/supabase.ts`, `pg_connect_tmp.mjs`, CSS `.ini`/`.codes`), protection `/scan` morte retirée du middleware, `.gitignore` complété (`supabase/.temp/`), page d'accueil placeholder remplacée.
+- **Vérifié** : `npm run typecheck` OK, `npm test` **37 tests** verts, `npm run build` OK, redirections scanner et 401 API re-testés en runtime.
 
 ---
 
@@ -37,7 +49,7 @@
 ## Variables d'environnement (pour tous les rôles)
 
 Les variables **publiques** du projet Supabase (URL + clé `anon`) sont commitées en vraies valeurs dans **`.env.example`** : copiez-le en `.env.local` pour développer (`cp .env.example .env.local`) ou reprenez les valeurs directement. La clé `anon` est publique par conception (RLS côté base) — côté serveur/node, copier le fichier en `.env.local` suffit pour Next.js.
-Les tokens privés (`GITHUB_TOKEN`, `SUPABASE_TOKEN`, `VERCEL_TOKEN`) vivent **uniquement** dans le `.env` local de Patrick, jamais commité ni copié.
+Aucun token privé GitHub, Supabase ou Vercel ne doit figurer dans `.env.example`, dans la documentation ou dans Git. Les accès d'administration doivent être fournis uniquement par l'environnement local ou les mécanismes d'authentification propres à chaque outil.
 
 ## Refonte produit (en cours — branche `feat/refonte-produit`)
 

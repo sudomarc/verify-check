@@ -239,15 +239,19 @@ VC.api = (function () {
             item.note = body && body.error === "doublon" ? "doublon confirmé" : "";
             await queuePut(item);
             synced++;
-          } else if (
-            body && ["qr_invalide", "cours_pas_actif", "salle_invalide", "pas_de_cours"].includes(body.error)
-          ) {
+          } else if (body && body.error === "qr_invalide") {
+            // Seul rejet définitif : l'élève n'existe pas, réessayer n'y changera rien.
             item.state = "rejected";
             item.note = body.error;
             await queuePut(item);
           } else {
+            // Tout le reste (panne réseau/serveur, cours plus actif au moment de
+            // la synchro, salle…) reste EN ATTENTE : un pointage réel ne doit
+            // JAMAIS être supprimé silencieusement. L'agent peut vider la file
+            // explicitement depuis les réglages.
             item.tries = (item.tries || 0) + 1;
-            await queuePut(item); // reste EN ATTENTE
+            item.note = (body && body.error) || item.note || "";
+            await queuePut(item);
           }
         } catch {
           break; // réseau perdu : on arrête proprement

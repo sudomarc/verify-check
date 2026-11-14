@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeNext } from "@/lib/redirect";
 
 const ERROR_LABELS: Record<string, string> = {
   identifiants_invalides: "Email ou mot de passe incorrect.",
@@ -12,7 +13,7 @@ const ERROR_LABELS: Record<string, string> = {
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeNext(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export default function LoginForm() {
         setError(ERROR_LABELS[body.error] ?? "Connexion impossible.");
         return;
       }
-      router.replace(next.startsWith("/") ? next : "/dashboard");
+      router.replace(next);
     } catch {
       setError("Réseau indisponible. Réessayez.");
     } finally {
