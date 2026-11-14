@@ -5,7 +5,7 @@
 > 2. Le Rôle 1 (Patrick) met à jour les sections des autres dès qu'une de ses tâches débloque la leur.
 > 3. Ce fichier est un **instantané**, pas une source de vérité technique : en cas de doute, se fier au code sur `main` et à `ROADMAP.md`/`TEAM.md`.
 
-**Dernière mise à jour :** 2026-11-13 — Rôle 1 : audit backend fusionné (PR #16) ; `.env.example` commité avec les variables **publiques** Supabase pour tous les rôles (les tokens privés restent dans `.env`, ignoré par Git)
+**Dernière mise à jour :** 2026-11-14 — Rôle 2 : application mobile native React Native/Expo (`mobile/`) sur branche `feat/app-mobile` — auth Supabase natif, scanner QR natif, file hors ligne, réutilisation des API backend via `Authorization: Bearer` (5 routes étendues, compat cookies préservée)
 
 ---
 
@@ -16,10 +16,11 @@
 - **Bloqué sur décision humaine** : création du **compte admin Supabase Auth** (email + mot de passe de la direction + `app_metadata.role='admin'`) — nécessite Patrick ; le parcours login→dashboard→scan bout-en-bout ne peut être vérifié qu'avec ce compte. Les variables d'environnement Vercel (production) sont aussi à configurer par Patrick.
 - **Reste Rôle 1** : vérification bout-en-bout scan→présence avec le compte admin (runtime 401/refus re-vérifiable seulement avec une session réelle) ; branchement réel de l'UI dashboard = Rôle 3 ; vérification locale du serveur de dev bloquée dans cet environnement (session Windows agent) — la CI GitHub revalide typecheck + tests + build sur la PR.
 
-## Rôle 2 — Frontend scanner ⏳ EN ATTENTE DU RÔLE 1 (partiel)
-- **Débloqué côté backend (Sprint 1–2)** : tables + RLS + policies admin appliquées dans Supabase ; endpoint `POST /api/scan` implémenté (QR → cours actif Conakry → `attendance`, anti-doublon vérifié en base). Reste à vérifier le parcours complet avec le compte admin (décision humaine).
-- **Peut faire dès maintenant :** maquette de l'écran scan (Sprint 0, ROADMAP) — rien ne dépend du schéma.
-- **Débloqué :** —
+## Rôle 2 — Frontend scanner 🔨 EN COURS
+- **Fait (PR #20 fusionnée)** : PWA scanner réel (caméra navigateur, états serveur honnêtes, erreurs métier affichées), dashboard branché aux données réelles, cartes QR imprimables.
+- **Fait (branche `feat/app-mobile`, PR en cours)** : application mobile native React Native + Expo (`mobile/`) — client des mêmes endpoints API, `Authorization: Bearer` accepté par le backend (helper `requestAccessToken`, 5 routes, compat cookies web préservée). Auth Supabase natif, contexte de pointage (classes + cours actifs Conakry), scanner QR natif + saisie manuelle, file hors ligne persistante (EN ATTENTE / CONFIRMÉ / REJETÉ — jamais de « confirmé » sans réponse serveur), historique local, compteurs réels. Vérifié : typecheck strict OK, 17 tests `node --test mobile/tests/` verts (mapping états, file, config), `expo-doctor` 20/20, typecheck + tests racine verts.
+- **Non vérifié / bloqué** : build Android signé (pas de SDK ni compte EAS sur la machine — instructions Expo Go dans `mobile/README.md`), caméra sur appareil physique, parcours complet login→scan→dashboard (compte admin Supabase toujours à créer — décision de Patrick).
+- **Reste Rôle 2** : retour sonore de confirmation, test réel appareil, éventuel flux multi-rôles (navigation `react-navigation` volontairement non ajoutée : un seul flux admin à 3 onglets).
 
 ## Rôle 3 — Frontend dashboard ⏳ EN ATTENTE (partiel)
 - **Débloqué côté backend (Sprint 1 + 3)** : tables + RLS + auth admin (login/middleware) appliquées ; API `GET /api/dashboard` (filtres date/classe/cours/élève, fuseau Conakry) et `GET /api/dashboard/export` (CSV absences) implémentées. L'UI (données réelles, filtres, export) reste à brancher par le Rôle 3.

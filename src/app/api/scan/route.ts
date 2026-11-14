@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   REFRESH_COOKIE,
   SESSION_COOKIE,
+  requestAccessToken,
   createServerSupabase,
   requireAdmin,
   setSessionCookies,
@@ -33,7 +34,7 @@ type CourseRow = {
 };
 
 export async function POST(request: NextRequest) {
-  const accessToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const accessToken = requestAccessToken(request);
   const auth = await requireAdmin(accessToken, request.cookies.get(REFRESH_COOKIE)?.value);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
