@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   REFRESH_COOKIE,
   SESSION_COOKIE,
+  requestAccessToken,
   createServerSupabase,
   requireAdmin,
   setSessionCookies,
@@ -20,7 +21,7 @@ import { schoolInstant } from "@/lib/time";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(
-    request.cookies.get(SESSION_COOKIE)?.value,
+    requestAccessToken(request),
     request.cookies.get(REFRESH_COOKIE)?.value
   );
   if (!auth.ok) {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServerSupabase(
-    auth.session?.access_token ?? request.cookies.get(SESSION_COOKIE)?.value
+    auth.session?.access_token ?? requestAccessToken(request)
   );
   const { startAt, endAt } = dayWindow(date);
 

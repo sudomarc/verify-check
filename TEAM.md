@@ -44,14 +44,24 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 
 **Périmètre :** PWA de scan, caméra et retour utilisateur.
 
-- [ ] **Sprint 0 :** réaliser la maquette de l'écran de scan.
-- [ ] **Sprint 2 :** intégrer la caméra navigateur avec `html5-qrcode`.
-- [ ] **Sprint 2 :** connecter le scan à l'endpoint backend et afficher le résultat réel.
-- [ ] **Sprint 2 :** ajouter les retours visuel et sonore de confirmation/erreur.
-- [ ] **Sprint 4 :** traiter les états d'erreur côté interface (double scan, QR invalide, aucun cours actif).
-- [ ] **Sprint 4 :** tester manuellement le parcours complet scan → présence avec le rôle 4.
+- [x] **Sprint 0 :** réaliser la maquette de l'écran de scan — maquettes HTML + PWA scanner réel (PR #20 fusionnée).
+- [x] **Sprint 2 :** intégrer la caméra navigateur avec `html5-qrcode` — PWA scan réel (PR #20).
+- [x] **Sprint 2 :** connecter le scan à l'endpoint backend et afficher le résultat réel — états serveur honnêtes, jamais de « confirmé » sans réponse (PR #20).
+- [ ] **Sprint 2 :** ajouter les retours visuel et sonore de confirmation/erreur (visuel fait ; sonore restant).
+- [x] **Sprint 4 :** traiter les états d'erreur côté interface (double scan, QR invalide, aucun cours actif) — PR #20 + app mobile.
+- [ ] **Sprint 4 :** tester manuellement le parcours complet scan → présence avec le rôle 4 (bloqué : compte admin Supabase à créer, décision de Patrick).
 
 **Dépend de :** rôle 1 pour l'API de scan et les règles métier. La maquette peut être faite avant le backend.
+
+### App mobile native (ajout au périmètre — React Native + Expo)
+
+- [x] **Audit** : réutilisation des API backend existantes (`/api/scan`, `/api/scan/context`, `/api/dashboard`) ; extension backend `Authorization: Bearer` (helper `requestAccessToken`, 5 routes) — aucune logique métier dupliquée, aucun changement de schéma/RLS.
+- [x] **Scaffold** : `mobile/` Expo SDK 58, TypeScript strict, `expo-doctor` 20/20.
+- [x] **Auth** : Supabase Auth natif (email/mot de passe, session persistée AsyncStorage, refresh auto).
+- [x] **Scanner** : caméra native (`expo-camera`) + saisie manuelle, compteur réel serveur, historique local.
+- [x] **Hors ligne** : file persistante (EN ATTENTE / CONFIRMÉ / REJETÉ), doublon serveur = confirmé, rejet définitif visible, jamais perdu.
+- [x] **Vérifié** : `tsc --noEmit` strict OK (mobile + racine), 17 tests `node --test mobile/tests/` verts, 32 tests racine verts.
+- [ ] **Non vérifié** : build Android signé (EAS/SDK manquant sur la machine), caméra sur appareil physique, parcours complet avec compte admin réel (bloqué : décision de Patrick).
 
 ## Rôle 3 — Frontend dashboard
 

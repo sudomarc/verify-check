@@ -72,6 +72,23 @@ export function setSessionCookies(
 }
 
 /**
+ * Extrait le JWT de session d'une requête :
+ * - header `Authorization: Bearer <jwt>` (application mobile Supabase) ;
+ * - sinon cookie httpOnly `vc_access` (web / PWA).
+ */
+export function requestAccessToken(request: {
+  headers: { get(name: string): string | null };
+  cookies: { get(name: string): { value: string } | undefined };
+}): string | undefined {
+  const header = request.headers.get("authorization");
+  if (header?.toLowerCase().startsWith("bearer ")) {
+    const token = header.slice(7).trim();
+    if (token) return token;
+  }
+  return request.cookies.get(SESSION_COOKIE)?.value;
+}
+
+/**
  * Vérifie le JWT auprès de Supabase et exige le rôle admin dans app_metadata.
  * Si l'access token est expiré mais qu'un refresh token est fourni, la session
  * est renouvelée (`refreshSession`) et la nouvelle session est renvoyée pour

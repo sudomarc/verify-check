@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   REFRESH_COOKIE,
   SESSION_COOKIE,
+  requestAccessToken,
   createServerSupabase,
   requireAdmin,
   setSessionCookies,
@@ -14,7 +15,7 @@ import { isCourseActive, schoolInstant } from "@/lib/time";
  * Source de l'écran « contexte » de la PWA. Auth admin requise.
  */
 export async function GET(request: NextRequest) {
-  const accessToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const accessToken = requestAccessToken(request);
   const auth = await requireAdmin(accessToken, request.cookies.get(REFRESH_COOKIE)?.value);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
