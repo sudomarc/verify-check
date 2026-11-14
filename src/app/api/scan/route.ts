@@ -60,7 +60,16 @@ export async function POST(request: NextRequest) {
     .select("id, nom, classe_id")
     .eq("code_qr", codeQr)
     .single();
-  if (studentError || !student) {
+  if (studentError) {
+    // PGRST116 = 0 ligne (QR inconnu) ; toute autre erreur est une panne base :
+    // il ne faut PAS la présenter comme un QR invalide, sinon le scanner
+    // écarte le pointage comme rejet définitif (perte de présence).
+    if (studentError.code === "PGRST116") {
+      return NextResponse.json({ error: "qr_invalide" }, { status: 404 });
+    }
+    return NextResponse.json({ error: "erreur_base" }, { status: 500 });
+  }
+  if (!student) {
     return NextResponse.json({ error: "qr_invalide" }, { status: 404 });
   }
 
