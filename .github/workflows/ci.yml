@@ -33,7 +33,7 @@ jobs:
         run: npm test
 
       - name: Tests unitaires mobile
-        run: node --test tests/
+        run: node --experimental-strip-types --test tests/
         working-directory: mobile
 
       - name: Build
