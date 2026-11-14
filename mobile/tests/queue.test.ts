@@ -91,9 +91,11 @@ test("synchroniser : les entrées déjà confirmées/rejetées ne sont pas rejou
   assert.equal(synchronises, 1);
 });
 
-test("estRejetDefinitif", () => {
+test("estRejetDefinitif : seul qr_invalide (contrat serveur, maintenance cycle 1)", () => {
   assert.ok(estRejetDefinitif("qr_invalide"));
-  assert.ok(estRejetDefinitif("cours_pas_actif"));
+  assert.ok(!estRejetDefinitif("cours_pas_actif"));
+  assert.ok(!estRejetDefinitif("pas_de_cours"));
+  assert.ok(!estRejetDefinitif("salle_invalide"));
   assert.ok(!estRejetDefinitif("doublon"));
   assert.ok(!estRejetDefinitif(undefined));
 });
