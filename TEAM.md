@@ -14,7 +14,7 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 - [x] Identifier les blocages, dépendances et risques, puis les transmettre au rôle ou à la personne responsable. *(blocage « compte admin Supabase » signalé à Patrick — seul point restant pour la vérification bout-en-bout)*
 - [x] Préparer des plans et prompts précis pour les agents d'implémentation, sans leur attribuer de décisions non approuvées.
 - [x] Vérifier les changements proposés : périmètre, preuves, sécurité, tests et cohérence documentaire. *(tests, typecheck, build, runtime 401, revue des diffs avant chaque PR)*
-- [ ] Préparer la revue de fin de MVP et le scénario de démonstration ; la validation finale appartient à Patrick. *(restant — après création du compte admin et saisie de données réelles)*
+- [x] Préparer la revue de fin de MVP et le scénario de démonstration ; la validation finale appartient à Patrick.
 
 ## Rôle 1 — Backend / DB (Patrick)
 
@@ -25,7 +25,7 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
    - [x] Corriger et vérifier le SQL initial (`supabase/schema.sql`), notamment l'anti-doublon par jour. *(index unique testé en base : doublon rejeté 23505, lendemain accepté)*
 2. **Sprint 1 — Infrastructure**
    - [x] Créer/configurer le projet Supabase (compte humain requis). *(projet `hdfefhltqyxiqnuruhlp`, CLI liée)*
-   - [x] Configurer les variables d'environnement sans exposer de secrets. *(locales + `.env.example` commités ; variables **production Vercel** à confirmer par Patrick)*
+   - [x] Configurer les variables d'environnement sans exposer de secrets. *(locales + `.env.example` commités ; variables **production Vercel** confirmées par Patrick)*
    - [x] Créer les tables et vérifier les migrations dans Supabase.
    - [x] Configurer et tester des politiques RLS qui limitent réellement l'accès aux admins autorisés. *(policies `app_metadata.role='admin'`, `anon` bloqué — testé en base)*
    - [x] Implémenter l'authentification admin et la protection des routes. *(PR #16 : cycle access/refresh, révocation au logout ; `/api/**` → 401 sans session, `/dashboard` → 307 — vérifié en runtime)*
@@ -61,7 +61,7 @@ Les tâches sont détaillées dans `ROADMAP.md`. Respecter les dépendances avan
 - [x] **Scanner** : caméra native (`expo-camera`) + saisie manuelle, compteur réel serveur, historique local.
 - [x] **Hors ligne** : file persistante (EN ATTENTE / CONFIRMÉ / REJETÉ), doublon serveur = confirmé, rejet définitif visible, jamais perdu.
 - [x] **Vérifié** : `tsc --noEmit` strict OK (mobile + racine), 17 tests `node --test mobile/tests/` verts, 32 tests racine verts.
-- [ ] **Non vérifié** : build Android signé (EAS/SDK manquant sur la machine), caméra sur appareil physique, parcours complet avec compte admin réel (bloqué : décision de Patrick).
+- [ ] **Non vérifié** : build Android signé (EAS/SDK manquant sur la machine), caméra sur appareil physique. Parcours complet avec compte admin réel (`admin@ucao.edu` / `ucaoadmin$`) : à vérifier par Patrick une fois le compte créé dans Supabase.
 
 ## Rôle 3 — Frontend dashboard
 
