@@ -134,11 +134,8 @@ export async function rejouerPointage(item: FileItem): Promise<"confirme" | "dou
     if (status === 201) return "confirme";
     const err = (body as { error?: string } | null)?.error;
     if (err === "doublon") return "doublon";
-    if (
-      err && ["qr_invalide", "pas_de_cours", "cours_ambigu", "salle_invalide", "cours_pas_actif"].includes(err)
-    ) {
-      return "rejete_definitif";
-    }
+    // Aligné sur le contrat serveur : seul qr_invalide est un rejet définitif.
+    if (err === "qr_invalide") return "rejete_definitif";
     return "reessayer";
   } catch {
     return "reessayer";

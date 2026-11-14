@@ -22,14 +22,11 @@ export type FileStore = {
   save(items: FileItem[]): Promise<void>;
 };
 
-/** Rejets métier définitifs (jamais réessayables). */
-const REJETS_DEFINITIFS = new Set([
-  "qr_invalide",
-  "pas_de_cours",
-  "cours_ambigu",
-  "salle_invalide",
-  "cours_pas_actif",
-]);
+/** Rejets métier définitifs (jamais réessayables).
+ * Aligné sur le contrat serveur (maintenance cycle 1) : seul `qr_invalide`
+ * est définitif — un pointage rejeté pour timing (pas_de_cours, salle…)
+ * reste EN ATTENTE et est rejoué à la synchronisation, jamais supprimé. */
+const REJETS_DEFINITIFS = new Set(["qr_invalide"]);
 
 export function nouvelleEntree(
   id: string,

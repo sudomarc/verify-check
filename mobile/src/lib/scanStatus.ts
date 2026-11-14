@@ -28,7 +28,10 @@ export type ScanApiBody = {
   candidates?: Array<{ id: string; nom: string; salle: string | null }>;
 };
 
-/** Erreurs métier définitives : jamais mises en file d'attente hors ligne. */
+/** Rejets métier définitifs en DIRECT : jamais mises en file d'attente
+ * (l'agent voit le résultat immédiatement). À la resynchronisation, la règle
+ * est différente (voir lib/queue.ts) : seul `qr_invalide` est rejeté, les
+ * rejets de timing restent EN ATTENTE et sont rejoués. */
 const REJETS_DEFINITIFS = new Set([
   "qr_invalide",
   "pas_de_cours",

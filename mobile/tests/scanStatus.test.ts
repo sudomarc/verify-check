@@ -28,7 +28,7 @@ test("mapScanResponse : session expirée et erreur serveur", () => {
   assert.equal(mapScanResponse(500, { error: "erreur_base" }).kind, "erreur_serveur");
 });
 
-test("doitMettreEnFile : uniquement réessayable, jamais rejet définitif ni confirmé", () => {
+test("doitMettreEnFile : uniquement réessayable, jamais rejet définitif ni confirmé (politique en DIRECT)", () => {
   assert.ok(doitMettreEnFile({ kind: "erreur_serveur" }));
   assert.ok(!doitMettreEnFile({ kind: "confirmee" }));
   assert.ok(!doitMettreEnFile({ kind: "doublon" }));
