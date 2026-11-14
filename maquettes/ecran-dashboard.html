@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VerifyCheck — Maquette écran dashboard</title>
+<style>
+  /* Maquette statique du dashboard direction.
+     Direction retenue : « registre scolaire contemporain » (docs/design-brief.md).
+     Surfaces papier claires, filets, un seul accent. Aucun effet décoratif.
+     Le dashboard réel (données via GET /api/dashboard) est dans
+     src/components/dashboard/ — ce fichier ne s'y connecte pas. */
+  :root{
+    --paper:#faf7f0; --surface:#fffdf8; --ink:#1c2733; --ink-soft:#5b6b7c;
+    --accent:#14604a; --accent-ink:#0c3d2f; --warn:#9a5b00; --danger:#a32e2e;
+    --line:#dcd5c8;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:#e8e2d6; color:var(--ink);
+    font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-wrap:wrap; gap:32px; align-items:flex-start;
+    justify-content:center; padding:28px 20px 56px;
+  }
+
+  /* ---------- colonne de contrôle (maquette seulement) ---------- */
+  .controls{width:252px;position:sticky;top:28px}
+  .controls h1{font-size:16px;margin:0 0 4px}
+  .controls .hint{color:var(--ink-soft);font-size:12.5px;margin:0 0 16px}
+  .controls .grp{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:0 0 8px}
+  .controls button{
+    display:block;width:100%;text-align:left;background:#fff;color:var(--ink);
+    border:1px solid var(--line);border-radius:4px;padding:9px 12px;margin-bottom:6px;
+    font:inherit;font-size:13.5px;cursor:pointer;
+  }
+  .controls button:hover{border-color:#b9ad98}
+  .controls button[aria-pressed="true"]{border-color:var(--accent);background:#eef5f0;color:var(--accent-ink);font-weight:600}
+  .controls .sep{height:1px;background:var(--line);margin:16px 0}
+  .controls .note{color:var(--ink-soft);font-size:12px;margin:0}
+
+  /* ---------- écran dashboard ---------- */
+  .screen{width:1060px;max-width:100%;flex:0 0 auto;background:var(--paper);
+    border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    box-shadow:0 24px 60px -34px rgba(0,0,0,.5)}
+
+  .header{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;
+    padding:20px 24px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .brand{font-weight:700;font-size:20px;letter-spacing:.01em}
+  .subtitle{margin:2px 0 0;color:var(--ink-soft);font-size:13px}
+  .filters{display:flex;flex-wrap:wrap;gap:12px}
+  .filters label{display:flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+  .filters input,.filters select{height:36px;min-width:150px;border:1px solid var(--line);border-radius:4px;
+    background:#fff;color:var(--ink);padding:0 8px;font:inherit}
+
+  .nav{display:flex;flex-wrap:wrap;gap:2px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .nav button{border:0;background:none;padding:12px 14px;font:inherit;font-size:14px;color:var(--ink-soft);
+    border-bottom:2px solid transparent;cursor:pointer}
+  .nav button:hover{color:var(--ink)}
+  .nav button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+  .main{padding:20px 24px;max-width:1100px}
+  .view[hidden]{display:none}
+
+  .resume{display:flex;flex-wrap:wrap;gap:32px;margin:0 0 20px;padding:16px 20px;
+    border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+  .resume > div{display:flex;flex-direction:column}
+  .kpi{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpiLabel{font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
+
+  table.table{width:100%;border-collapse:collapse;background:var(--surface);
+    border:1px solid var(--line);border-radius:8px;font-size:14px;overflow:hidden}
+  .table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-soft);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .table td{padding:10px 12px;border-bottom:1px solid var(--line)}
+  .table tbody tr:last-child td{border-bottom:0}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .code{font-family:ui-monospace,Consolas,Menlo,monospace;font-size:12px}
+  .empty{color:var(--ink-soft);text-align:center;padding:24px 12px}
+
+  .error{margin:16px 24px;padding:10px 14px;border:1px solid var(--danger);border-radius:4px;
+    color:var(--danger);background:#fdf3f3;font-size:14px}
+  .loading{margin:16px 24px;color:var(--ink-soft);font-size:14px}
+  [hidden]{display:none !important}
+
+  .actionsRow{margin:16px 0}
+  .button{display:inline-block;height:40px;line-height:38px;padding:0 16px;border:1px solid var(--accent);
+    border-radius:4px;background:var(--accent);color:#fff;font:inherit;font-weight:600;text-decoration:none;cursor:pointer}
+  .button:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+
+  /* pastilles d'état métier : couleur + texte (jamais la couleur seule) */
+  .pastille{display:inline-block;margin:0 6px 4px 0;padding:2px 8px;border-radius:999px;
+    font-size:11px;font-weight:600;letter-spacing:.03em;border:1px solid currentColor}
+  .present{color:var(--accent);background:#eef5f0}
+  .nonPointe{color:var(--warn);background:#faf3e6}
+  .absent{color:var(--danger);background:#fdf3f3}
+
+  /* cartes QR imprimables */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .card{border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden;break-inside:avoid}
+  .cardHead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:600}
+  .cardBody{display:flex;gap:12px;align-items:center;padding:12px}
+  .cardNom{font-weight:600;font-size:15px}
+  .cardCode{font-family:ui-monospace,Consolas,Menlo,monospace;font-size:12px;color:var(--ink-soft)}
+  .qr{width:110px;height:110px;flex:0 0 auto;border:1px solid var(--line);border-radius:4px;background:#fff}
+  .printTitle{font-size:16px;margin:8px 0 12px}
+
+  @media (max-width:700px){
+    .controls{position:static;width:100%}
+    .screen{width:100%}
+    .main{padding:16px}
+  }
+</style>
+</head>
+<body>
+
+  <!-- Colonne de contrôle : sert uniquement à présenter les vues et les états. -->
+  <aside class="controls">
+    <h1>Maquette — écran dashboard</h1>
+    <p class="hint">Représentation statique du dashboard direction (Rôle 3).
+      Le dashboard réel est dans <code>src/components/dashboard/</code>.</p>
+    <p class="grp">Vues</p>
+    <button type="button" data-view="general" aria-pressed="true">Vue générale</button>
+    <button type="button" data-view="classes" aria-pressed="false">Classes</button>
+    <button type="button" data-view="cours" aria-pressed="false">Cours</button>
+    <button type="button" data-view="eleves" aria-pressed="false">Élèves</button>
+    <button type="button" data-view="cartes" aria-pressed="false">Cartes QR</button>
+    <div class="sep"></div>
+    <p class="grp">États de chargement</p>
+    <button type="button" id="loadBtn" aria-pressed="false">Chargement…</button>
+    <button type="button" id="errBtn" aria-pressed="false">Erreur serveur</button>
+    <div class="sep"></div>
+    <p class="note">Écran large (direction). Le PWA de scan (Rôle 2) est un écran
+      distinct, sur téléphone.</p>
+  </aside>
+
+  <!-- Écran -->
+  <div class="screen">
+    <header class="header">
+      <div>
+        <div class="brand">VerifyCheck</div>
+        <p class="subtitle">vendredi 13 novembre 2026 · Africa/Conakry</p>
+      </div>
+      <div class="filters">
+        <label>Date<input type="date" value="2026-11-13" max="2026-11-13"></label>
+        <label>Classe<select><option>Toutes</option><option>6ème A</option><option>5ème B</option></select></label>
+        <label>Cours<select><option>Tous</option><option>Mathématiques 08:00</option><option>Français 10:15</option><option>Sciences 08:00</option><option>Anglais 14:00</option></select></label>
+      </div>
+    </header>
+
+    <nav class="nav" aria-label="Sections">
+      <button type="button" class="on" data-view="general" aria-current="page">Vue générale</button>
+      <button type="button" data-view="classes">Classes</button>
+      <button type="button" data-view="cours">Cours</button>
+      <button type="button" data-view="eleves">Élèves</button>
+      <button type="button" data-view="cartes">Cartes QR</button>
+    </nav>
+
+    <p class="error" id="err" role="alert" hidden>Erreur serveur — réessaie.</p>
+    <p class="loading" id="load" hidden>Chargement des données réelles…</p>
+
+    <main class="main" id="main">
+
+      <!-- ---------------------------------------------- VUE GÉNÉRALE -->
+      <section class="view" data-view="general">
+        <section class="resume">
+          <div><span class="kpi">4</span><span class="kpiLabel">cours prévus</span></div>
+          <div><span class="kpi">8</span><span class="kpiLabel">élèves concernés</span></div>
+          <div><span class="kpi">6</span><span class="kpiLabel">présents (≥ 1 scan)</span></div>
+          <div><span class="kpi">7</span><span class="kpiLabel">scans serveur</span></div>
+        </section>
+        <table class="table">
+          <thead>
+            <tr><th>Classe</th><th>Cours</th><th>Salle</th><th>Heure</th><th>Présents</th><th>Absents (cours terminé)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>6ème A</td><td>Mathématiques</td><td>Salle 12</td><td class="num">08:00–10:00</td><td class="num">3/4</td><td class="num">1</td></tr>
+            <tr><td>6ème A</td><td>Français</td><td>Salle 12</td><td class="num">10:15–12:15</td><td class="num">2/4</td><td class="num">0</td></tr>
+            <tr><td>5ème B</td><td>Sciences</td><td>Laboratoire</td><td class="num">08:00–10:00</td><td class="num">2/4</td><td class="num">2</td></tr>
+            <tr><td>5ème B</td><td>Anglais</td><td>Salle 7</td><td class="num">14:00–16:00</td><td class="num">0/4</td><td class="num">0</td></tr>
+          </tbody>
+        </table>
+        <p class="actionsRow"><a class="button" href="#" onclick="return false">Exporter les absences (CSV)</a></p>
+      </section>
+
+      <!-- -------------------------------------------------- CLASSES -->
+      <section class="view" data-view="classes" hidden>
+        <table class="table">
+          <thead><tr><th>Classe</th><th>Élèves</th><th>Présents aujourd'hui</th><th>Cours prévus</th></tr></thead>
+          <tbody>
+            <tr><td>6ème A</td><td class="num">4</td><td class="num">4</td><td class="num">2</td></tr>
+            <tr><td>5ème B</td><td class="num">4</td><td class="num">2</td><td class="num">2</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ---------------------------------------------------- COURS -->
+      <section class="view" data-view="cours" hidden>
+        <table class="table">
+          <thead><tr><th>Cours</th><th>Classe</th><th>Heure</th><th>Salle</th><th>Présents</th></tr></thead>
+          <tbody>
+            <tr><td>Mathématiques</td><td>6ème A</td><td class="num">08:00–10:00</td><td>Salle 12</td><td class="num">3/4</td></tr>
+            <tr><td>Français</td><td>6ème A</td><td class="num">10:15–12:15</td><td>Salle 12</td><td class="num">2/4</td></tr>
+            <tr><td>Sciences</td><td>5ème B</td><td class="num">08:00–10:00</td><td>Laboratoire</td><td class="num">2/4</td></tr>
+            <tr><td>Anglais</td><td>5ème B</td><td class="num">14:00–16:00</td><td>Salle 7</td><td class="num">0/4</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- -------------------------------------------------- ÉLÈVES -->
+      <section class="view" data-view="eleves" hidden>
+        <table class="table">
+          <thead><tr><th>Élève</th><th>Classe</th><th>Code carte</th><th>Scans</th><th>Détail des cours</th></tr></thead>
+          <tbody id="elevesBody"></tbody>
+        </table>
+      </section>
+
+      <!-- -------------------------------------------------- CARTES -->
+      <section class="view" data-view="cartes" hidden>
+        <p class="actionsRow"><button type="button" class="button">Imprimer la planche (8 cartes)</button></p>
+        <h2 class="printTitle">Cartes — toutes les classes</h2>
+        <div class="cards" id="cards"></div>
+      </section>
+
+    </main>
+  </div>
+
+<script>
+  // Données d'exemple (miroir de src/lib/mock-data.ts) — aucune donnée réelle.
+  const STATUTS = {
+    present:      { label: "PRÉSENT",    cls: "present" },
+    "non-pointe": { label: "NON POINTÉ", cls: "nonPointe" },
+    absent:       { label: "ABSENT",     cls: "absent" }
+  };
+
+  const ELEVES = [
+    { nom:"Fatoumata Diallo", classe:"6ème A", code:"VC-6A-0001", scans:2, statuts:[["Mathématiques","present"],["Français","present"]] },
+    { nom:"Mamadou Camara",   classe:"6ème A", code:"VC-6A-0002", scans:1, statuts:[["Mathématiques","present"],["Français","non-pointe"]] },
+    { nom:"Aïssatou Barry",   classe:"6ème A", code:"VC-6A-0003", scans:1, statuts:[["Mathématiques","absent"],["Français","present"]] },
+    { nom:"Ibrahima Sow",     classe:"6ème A", code:"VC-6A-0004", scans:1, statuts:[["Mathématiques","present"],["Français","non-pointe"]] },
+    { nom:"Kadiatou Keïta",   classe:"5ème B", code:"VC-5B-0001", scans:1, statuts:[["Sciences","present"],["Anglais","non-pointe"]] },
+    { nom:"Ousmane Condé",    classe:"5ème B", code:"VC-5B-0002", scans:1, statuts:[["Sciences","present"],["Anglais","non-pointe"]] },
+    { nom:"Mariam Touré",     classe:"5ème B", code:"VC-5B-0003", scans:0, statuts:[["Sciences","absent"],["Anglais","non-pointe"]] },
+    { nom:"Alpha Bah",        classe:"5ème B", code:"VC-5B-0004", scans:0, statuts:[["Sciences","absent"],["Anglais","non-pointe"]] }
+  ];
+
+  const $  = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const esc = (v) => String(v).replace(/[&<>"']/g, (c) =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+  // Tableau élèves : une pastille « cours : STATUT » par cours de la classe.
+  $("#elevesBody").innerHTML = ELEVES.map((e) => {
+    const pastilles = e.statuts.map(([cours, st]) => {
+      const s = STATUTS[st];
+      return '<span class="pastille ' + s.cls + '">' + esc(cours) + " : " + s.label + "</span>";
+    }).join("");
+    return "<tr><td>" + esc(e.nom) + "</td><td>" + esc(e.classe) + "</td>" +
+      '<td class="code">' + esc(e.code) + "</td>" +
+      '<td class="num">' + e.scans + "</td><td>" + pastilles + "</td></tr>";
+  }).join("");
+
+  // Pseudo-QR déterministe (illustratif : ce n'est PAS un QR scannable).
+  function qrSvg(seed){
+    const N = 21, cell = 6;
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const rnd = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
+
+    const inBox = (r, c, r0, c0) => r >= r0 && r < r0 + 7 && c >= c0 && c < c0 + 7;
+    const finder = (r, c) => {
+      const zones = [[0,0],[0,N-7],[N-7,0]];
+      for (const [r0, c0] of zones) {
+        if (inBox(r, c, r0, c0)) {
+          const lr = r - r0, lc = c - c0;
+          const edge = lr === 0 || lr === 6 || lc === 0 || lc === 6;
+          const core = lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4;
+          return (edge || core) ? 1 : 0;
+        }
+      }
+      return -1;
+    };
+
+    let rects = "";
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const f = finder(r, c);
+        const dark = f === -1 ? rnd() > 0.5 : f === 1;
+        if (dark) rects += '<rect x="' + c * cell + '" y="' + r * cell + '" width="' + cell + '" height="' + cell + '"/>';
+      }
+    }
+    return '<svg class="qr" viewBox="0 0 ' + N * cell + " " + N * cell +
+      '" role="img" aria-label="QR illustratif"><rect width="100%" height="100%" fill="#fff"/><g fill="#1c2733">' +
+      rects + "</g></svg>";
+  }
+
+  $("#cards").innerHTML = ELEVES.map((e) =>
+    '<article class="card"><div class="cardHead"><span>VerifyCheck</span><span>' + esc(e.classe) + "</span></div>" +
+    '<div class="cardBody">' + qrSvg(e.code) + "<div>" +
+    '<div class="cardNom">' + esc(e.nom) + "</div>" +
+    '<div class="cardCode">' + esc(e.code) + "</div></div></div></article>"
+  ).join("");
+
+  // ---- navigation entre vues + états ----
+  function setView(view){
+    $$(".view").forEach((s) => { s.hidden = s.dataset.view !== view; });
+    $$(".nav button").forEach((b) => {
+      const on = b.dataset.view === view;
+      b.classList.toggle("on", on);
+      if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    $$(".controls [data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+  }
+
+  $$("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+  let loading = false, error = false;
+  function renderStates(){
+    $("#load").hidden = !loading;
+    $("#err").hidden = !error;
+    $("#main").hidden = loading || error;
+    $("#loadBtn").setAttribute("aria-pressed", String(loading));
+    $("#errBtn").setAttribute("aria-pressed", String(error));
+  }
+  $("#loadBtn").addEventListener("click", () => { loading = !loading; if (loading) error = false; renderStates(); });
+  $("#errBtn").addEventListener("click", () => { error = !error; if (error) loading = false; renderStates(); });
+
+  setView("general");
+  renderStates();
+</script>
+</body>
+</html>
