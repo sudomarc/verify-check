@@ -59,7 +59,10 @@ export type DashboardResult = {
   fuseau: string;
   jour_semaine: number;
   classes: ClassRow[];
+  /** Cours du jour, filtrés par classe et cours sélectionnés. */
   cours_prevus: CourseRow[];
+  /** Tous les cours du jour de la classe sélectionnée, pour garder le filtre navigable. */
+  cours_disponibles: CourseRow[];
   effectif: number;
   presents: number;
   scans: number;
@@ -85,12 +88,10 @@ export function buildDashboard(
 ): DashboardResult {
   const weekday = weekdayOfIso(filters.date);
 
-  const plannedCourses = raw.courses.filter(
-    (c) =>
-      c.jour_semaine === weekday &&
-      (!filters.cours || c.id === filters.cours) &&
-      (!filters.classe || c.classe_id === filters.classe)
+  const availableCourses = raw.courses.filter(
+    (c) => c.jour_semaine === weekday && (!filters.classe || c.classe_id === filters.classe)
   );
+  const plannedCourses = availableCourses.filter((c) => !filters.cours || c.id === filters.cours);
 
   const visibleStudents = raw.students
     .filter((s) => !filters.classe || s.classe_id === filters.classe)
@@ -119,6 +120,7 @@ export function buildDashboard(
     jour_semaine: weekday,
     classes: raw.classes,
     cours_prevus: plannedCourses,
+    cours_disponibles: availableCourses,
     effectif: visibleStudents.length,
     presents: presentCount,
     scans: rows.length,
