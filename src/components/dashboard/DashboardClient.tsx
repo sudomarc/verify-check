@@ -110,6 +110,18 @@ function statutClass(statut: Statut, s: Record<string, string>): string {
   return `${styles.pastille} ${s[key] ?? ""}`;
 }
 
+function formatPresenceAt(scannedAt: string): string {
+  const d = new Date(scannedAt);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
 export default function DashboardClient() {
   const [vue, setVue] = useState<Vue>("general");
   const [date, setDate] = useState(todayConakry());
@@ -345,29 +357,48 @@ export default function DashboardClient() {
           {vue === "eleves" && (
             <table className={styles.table}>
               <thead>
-                <tr><th>Élève</th><th>Classe</th><th>Code carte</th><th>Scans</th><th>Détail des cours</th></tr>
+                <tr><th>Élève</th><th>Classe</th><th>Code carte</th><th>Scans</th><th>Historique</th></tr>
               </thead>
               <tbody>
-                {eleveParClasse.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.nom}</td>
-                    <td>{classeLabel(e.classe_id)}</td>
-                    <td className={styles.code}>{e.code_qr}</td>
-                    <td className={styles.num}>{e.scans}</td>
-                    <td>
-                      {data.cours_prevus
-                        .filter((c) => c.classe_id === e.classe_id)
-                        .map((c) => {
-                          const statut = statutEleve(e, c, date);
-                          return (
-                            <span key={c.id} className={statutClass(statut, styles as Record<string, string>)}>
-                              {c.nom} : {STATUT_LABEL[statut]}
+                {eleveParClasse.map((e) => {
+                  const history = (data.cours_prevus ?? [])
+                    .filter((c) => c.classe_id === e.classe_id)
+                    .map((c) => {
+                      const rencontre = e.presences.find((p) => p.course_id === c.id);
+                      const statut = statutEleve(e, c, date);
+                      return {
+                        course: c,
+                        statut,
+                        presence: rencontre,
+                      };
+                    });
+
+                  return (
+                    <tr key={e.id}>
+                      <td>{e.nom}</td>
+                      <td>{classeLabel(e.classe_id)}</td>
+                      <td className={styles.code}>{e.code_qr}</td>
+                      <td className={styles.num}>{e.scans}</td>
+                      <td>
+                        {history.length === 0 ? (
+                          <span className={styles.empty}>Aucun cours prévu.</span>
+                        ) : (
+                          history.map(({ course, statut, presence }) => (
+                            <span
+                              key={`${e.id}-${course.id}`}
+                              className={statutClass(statut, styles as Record<string, string>)}
+                            >
+                              {course.nom}
+                              {presence
+                                ? ` · Présent · ${formatPresenceAt(presence.scanned_at)}`
+                                : ` · ${STATUT_LABEL[statut]}`}
                             </span>
-                          );
-                        })}
-                    </td>
-                  </tr>
-                ))}
+                          ))
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {eleveParClasse.length === 0 && (
                   <tr><td colSpan={5} className={styles.empty}>Aucun élève pour ce filtre.</td></tr>
                 )}
