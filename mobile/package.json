@@ -6,13 +6,13 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
     "@supabase/supabase-js": "^2.45.0",
-    "expo": "~51.0.0",
+    "expo": "~58.0.26",
     "expo-barcode-scanner": "~13.0.0",
     "expo-camera": "~15.0.0",
     "expo-secure-store": "~13.0.0",
     "expo-status-bar": "~1.12.0",
     "react": "18.3.1",
-    "react-native": "0.74.5",
+    "react-native": "0.88.1",
     "react-native-url-polyfill": "^2.0.0"
   },
   "devDependencies": {
@@ -20,7 +20,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "~18.3.0",
     "jest": "^29.7.0",
-    "jest-expo": "^51.0.0",
+    "jest-expo": "^58.0.15",
     "typescript": "~5.4.0"
   },
   "scripts": {
